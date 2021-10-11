@@ -1,7 +1,7 @@
 # HEVA
 HEVA - High Efficiency VTuber Avatar. Virtual avatar application, based on Urho3D and DLib.
 
-Additional information can be found there: https://www.youtube.com/watch?v=ZNmIW92sFw8
+Additional information can be found in this video: https://www.youtube.com/watch?v=ZNmIW92sFw8
 
 ## Compiling for GNU/Linux
 Firstly you need to install DLib, OpenCV and Urho3D.
