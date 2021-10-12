@@ -40,7 +40,7 @@ void* vmc_osc_sender_thread_function(void* arg)
 		pthread_mutex_unlock(&vmc_osc_sender_thread_mutex);
 		
 		// declare a buffer for writing the OSC packet into
-		char buffer[1024];
+		char buffer[2048];
 		
 		tosc_bundle bundle;
 		tosc_writeBundle(&bundle, 0, buffer, sizeof(buffer));
