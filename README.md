@@ -3,6 +3,11 @@ HEVA - High Efficiency VTuber Avatar. Virtual avatar application, based on Urho3
 
 Additional information can be found in this video: https://www.youtube.com/watch?v=ZNmIW92sFw8
 
+## Usage
+For windows, just download latest release and unpack. Launch `heva.exe` . To configure HEVA, edit `heva.ini` file.
+
+https://github.com/scaledteam/HEVA/releases/
+
 ## Compiling for GNU/Linux
 Firstly you need to install DLib, OpenCV and Urho3D.
 
