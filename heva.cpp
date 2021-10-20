@@ -819,12 +819,14 @@ void Heva::HandleUpdate(StringHash eventType, VariantMap& eventData)
 		boneLeg_R_3->SetWorldRotation(boneLeg_R_3_Offset);
 		
 		
+		#ifdef VMC_OSC_SENDER
 		if (vmc_osc_udp_enabled) {
 			vmc_osc_sender_data->boneLeg_L = Quaternion(0, 0, angleLegs_L);
 			vmc_osc_sender_data->boneLeg_R = Quaternion(0, 0, angleLegs_R);
 			vmc_osc_sender_data->boneLeg_L_2 = Quaternion(0, 0, -angleLegs_L*1.7);
 			vmc_osc_sender_data->boneLeg_R_2 = Quaternion(0, 0, -angleLegs_R*1.7);
 		}
+		#endif
 	}
 	else {
 		boneLeg_L->SetWorldRotation(boneLeg_L_Offset);
