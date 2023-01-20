@@ -11,6 +11,8 @@
 #define DLIB_THREAD_SIGNAL_CALIBRATE_MTH_Fun 5
 #define DLIB_THREAD_SIGNAL_CALIBRATE_MTH_U 6
 
+#define HEVA_CONFIG_PATH "heva.ini"
+
 #include <pthread.h>
 #include <dlib/opencv.h>
 #include <dlib/image_processing.h>
@@ -34,12 +36,31 @@ struct face_recognition_data {
 	double translation3;
 };
 
+struct webcam_settings_t {
+	int Width = -1;
+	int Height = -1;
+	int Fps = -1;
+	bool Setup = true;
+	bool YUYV = false;
+	bool LimitTo24or25 = false;
+	char PreferredName[256] = "";
+	int PreferredId = -1;
+	char Format[4] = "";
+	bool Sync = true;
+	bool SyncType2 = true;
+	bool MouthIndirect = false;
+	float Gamma = 1.0;
+	int Buffer = -1;
+	bool EyeSync = true;
+};
+
 struct dlib_thread_data {
 	unsigned char dlib_thread_active;
 	unsigned char dlib_thread_ready;
 	unsigned char dlib_thread_signal;
 	pthread_cond_t dlib_thread_cond;
 	face_recognition_data face_data;
+	webcam_settings_t* webcam_settings;
 	
 	pthread_cond_t dlib_thread2_cond1;
 	pthread_cond_t dlib_thread2_cond2;

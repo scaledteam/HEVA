@@ -56,6 +56,7 @@ pthread_t dlib_thread1;
 pthread_t dlib_thread2;
 pthread_mutex_t dlib_thread_mutex = PTHREAD_MUTEX_INITIALIZER;
 dlib_thread_data* dlib_data;
+webcam_settings_t* webcam_settings;
 #endif
 
 #ifdef VMC_OSC_SENDER
@@ -88,7 +89,6 @@ Heva::Heva(Context* context) :
 std::string sceneName = "Default";
 bool webcamSync = true;
 int graphicsFps = 0;
-bool graphicsSimple = false;
 
 void Heva::Setup()
 {
@@ -99,8 +99,10 @@ void Heva::Setup()
 	bool graphicsVsync = true;
 	bool graphicsFullscreen = false;
 	bool graphicsBorderless = false;
+	bool graphicsSimple = false;
 	
-	INIReader reader(HEVA_CONFIG_PATH);
+	auto* fileSystem = GetSubsystem<FileSystem>();
+	INIReader reader((fileSystem->GetProgramDir() + "heva.ini").GetBuffer());
 	if (reader.ParseError() < 0) {
 		printf("Can't load 'test.ini'\n");
 	}
@@ -125,6 +127,29 @@ void Heva::Setup()
 		vmc_osc_udp_addr = reader.Get("network", "address", "127.0.0.1");
 		vmc_osc_udp_port = reader.GetInteger("network", "port", 900);
 		#endif
+		
+		#ifdef WEBCAM_ENABLE
+		webcam_settings = (webcam_settings_t*)calloc(1, sizeof(webcam_settings_t));
+		webcam_settings->PreferredId = reader.GetInteger("webcam", "preferred_id", -1);
+		strcpy(webcam_settings->PreferredName, reader.Get("webcam", "preferred_name", "").c_str());
+		strcpy(webcam_settings->Format, reader.Get("webcam", "format", "").c_str());
+		
+		webcam_settings->Sync = reader.GetBoolean("webcam", "sync", true);
+		webcam_settings->SyncType2 = reader.GetBoolean("webcam", "sync_type2", true);
+		webcam_settings->MouthIndirect = reader.GetBoolean("webcam", "mouth_indirect", false);
+		webcam_settings->Gamma = reader.GetReal("webcam", "gamma", 1.0);
+		webcam_settings->Buffer = reader.GetInteger("webcam", "buffer", -1);
+		
+		webcam_settings->Setup = reader.GetBoolean("webcam", "setup", true);
+		webcam_settings->Width = reader.GetInteger("webcam", "width", -1);
+		webcam_settings->Height = reader.GetInteger("webcam", "height", -1);
+		webcam_settings->Fps = reader.GetInteger("webcam", "fps", -1);
+		webcam_settings->LimitTo24or25 = reader.GetBoolean("webcam", "limitTo24or25", false);
+		webcam_settings->YUYV = reader.GetBoolean("webcam", "optimised_YUYV_conversion", false);
+		
+		webcam_settings->EyeSync = reader.GetBoolean("webcam", "eye_sync", true);
+		#endif
+		
 	}
 	
 	#ifdef X11_TRANSPARENT_WINDOW
@@ -151,11 +176,14 @@ void Heva::Setup()
 	engineParameters_[EP_BORDERLESS] = graphicsBorderless;
 	engineParameters_[EP_SHADOWS] = false;
 	
+	if (graphicsSimple)
+		engineParameters_[EP_RENDER_PATH] = "RenderPaths/Simple.xml";
+	
 	
 	engineParameters_[EP_MULTI_SAMPLE] = graphicsMultisample;
 	//engineParameters_[EP_FORCE_GL2] = true;
 	engineParameters_[EP_HIGH_DPI] = false;
-	engineParameters_[EP_FLUSH_GPU] = true;
+	//engineParameters_[EP_FLUSH_GPU] = true;
 	
 	#ifdef X11_TRANSPARENT_WINDOW
 	engineParameters_[EP_EXTERNAL_WINDOW] = window_;
@@ -165,8 +193,12 @@ void Heva::Setup()
 	// The first entry is an empty path which will be substituted with program/bin directory -- this entry is for binary when it is still in build tree
 	// The second and third entries are possible relative paths from the installed program/bin directory to the asset directory -- these entries are for binary when it is in the Urho3D SDK installation location
 	//if (!engineParameters_.Contains(EP_RESOURCE_PREFIX_PATHS))
-	//	engineParameters_[EP_RESOURCE_PREFIX_PATHS] = ";../share/Resources;../share/Urho3D/Resources";
+		//engineParameters_[EP_RESOURCE_PREFIX_PATHS] = ";../share/Resources;../share/Urho3D/Resources";
+		//engineParameters_[EP_RESOURCE_PREFIX_PATHS] = "Data;CoreData";
 	//engineParameters_[EP_RESOURCE_PREFIX_PATHS] = "/home/scaled/git/Urho3D/bin/";
+	//engineParameters_[EP_RESOURCE_PREFIX_PATHS] = (Urho3D::String)"CoreData;Data/" + sceneName.c_str() + ";";
+	//engineParameters_[EP_RESOURCE_PREFIX_PATHS] = ";CoreData;Data/Default";
+	engineParameters_[EP_RESOURCE_PATHS] = (Urho3D::String)"CoreData;Data/" + sceneName.c_str() + ";Data;";
 	
 	#ifdef X11_TRANSPARENT_WINDOW
 	engine_ = new Urho3D::Engine(context_);
@@ -195,9 +227,7 @@ Urho3D::Bone* boneEyeRBone;
 Urho3D::Node* boneHips;
 float boneLegLength;
 float boneLegDistance;
-Urho3D::Node* boneUpperChest;
 Urho3D::Quaternion boneHipsOffset;
-Urho3D::Quaternion boneUpperChestOffset;
 Urho3D::Vector3 boneHipsPosition;
 Urho3D::Time* time_;
 // Face string hash
@@ -343,7 +373,7 @@ void Heva::Start()
 	// Set custom window Title & Icon
 	ResourceCache* cache = GetSubsystem<ResourceCache>();
 	Graphics* graphics = GetSubsystem<Graphics>();
-	Image* icon = cache->GetResource<Image>("Textures/heva_icon.png");
+	Image* icon = cache->GetResource<Image>("heva_icon.png");
 	graphics->SetWindowIcon(icon);
 	
 	#ifndef X11_TRANSPARENT_WINDOW
@@ -362,10 +392,9 @@ void Heva::Start()
         
 	//// test code
 	scene_ = new Scene(context_);
-	//File loadFile(context_, GetSubsystem<FileSystem>()->GetProgramDir() + "Data/Scenes/" + sceneName.c_str() + ".xml", FILE_READ);
-        //scene_->LoadXML(cache->GetResource<XMLFile>("Scenes/Scene.xml"));
-	//File loadFile(context_, cache->GetResourceDirs()[1] + "Scenes/Scene.xml", FILE_READ);
-	File loadFile(context_, cache->GetResourceDirs()[1] + "Scenes/" + sceneName.c_str() + ".xml", FILE_READ);
+	File loadFile(context_, cache->GetResourceDirs()[1] + "Scenes/Scene.xml", FILE_READ);
+	//File loadFile(context_, "/home/scaled/projects/Urho3D/HEVA2/build4/bin/Data/Default/Scene.xml", FILE_READ);
+	
         scene_->LoadXML(loadFile);
         
         
@@ -429,10 +458,6 @@ void Heva::Start()
 	//effectRenderPath->Append(cache->GetResource<XMLFile>("PostProcess/FXAA3.xml"));
 	//viewport->SetRenderPath(effectRenderPath);
 	
-	// No shading
-	if (graphicsSimple)
-		viewport->SetRenderPath(cache->GetResource<XMLFile>("RenderPaths/Simple.xml"));
-	
 	// Neck tracking
 	boneNeck = boneHips->GetChild("neck", true);
 	boneHead = boneNeck->GetChild("head", true);
@@ -453,21 +478,17 @@ void Heva::Start()
 	boneEyeLBone = modelObject->GetSkeleton().GetBone("leftEye");
 	boneEyeRBone = modelObject->GetSkeleton().GetBone("rightEye");
 	
-	boneUpperChest = boneHips->GetChild("chest", true);
-	boneUpperChestOffset = boneUpperChest->GetRotation();
-	
 	
 	// hair physics
 	#ifdef DEBUG_GEOMETRY
 	scene_->CreateComponent<DebugRenderer>();
 	#endif
-	printf("123123\n");
 	PhysicsWorld* physicsWorld_ = scene_->CreateComponent<PhysicsWorld>();
 	
 	RigidBody* headRigidBody = boneHead->CreateComponent<RigidBody>();
 	
-	//Urho3D::Node* boneUpperChest = boneHips->GetChild("upperChest", true);
 	Urho3D::Node* boneUpperChest = boneHips->GetChild("chest", true);
+	//Urho3D::Node* boneUpperChest = boneHips->GetChild("upperChest", true);
 	RigidBody* upperChestRigidBody = boneUpperChest->CreateComponent<RigidBody>();
 	
 	#ifdef COLLIDERS_FROM_MODEL
@@ -482,7 +503,8 @@ void Heva::Start()
 	headRigidBody->SetAngularDamping(1.f);
 	
 	// Chest collistion
-	Node* boneChest = boneHips->GetChild("upperChest", true);
+	Node* boneChest = boneHips->GetChild("chest", true);
+	//Node* boneChest = boneHips->GetChild("upperChest", true);
 	RigidBody* chestRigidBody = boneChest->CreateComponent<RigidBody>();
 	CollisionShape* chestShape = boneChest->CreateComponent<CollisionShape>();
 	chestShape->SetCapsule(0.11469f*1.8, 0.11469f*3, Vector3(-0.012381, -0.01, 0), Quaternion(90, 0, 0));
@@ -519,6 +541,8 @@ void Heva::Start()
 	
 	dlib_data->dlib_thread_active = 1;
 	dlib_data->dlib_thread_ready = 0;
+	
+	dlib_data->webcam_settings = webcam_settings;
 	
 	pthread_create(&dlib_thread1, NULL, dlib_thread1_function, dlib_data);
 	pthread_create(&dlib_thread2, NULL, dlib_thread2_function, dlib_data);

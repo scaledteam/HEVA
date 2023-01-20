@@ -350,7 +350,7 @@ int main(int argc, char *argv[])
 	height = 800;
 	bool graphicsVsync = true;
 	
-	INIReader reader(HEVA_CONFIG_PATH);
+	/*INIReader reader(HEVA_CONFIG_PATH);
 	if (reader.ParseError() < 0) {
 		printf("Can't load 'test.ini'\n");
 	}
@@ -360,7 +360,7 @@ int main(int argc, char *argv[])
 		width = reader.GetInteger("graphics", "width", 550);
 		height = reader.GetInteger("graphics", "height", 800);
 		graphicsVsync = reader.GetBoolean("graphics", "vsync", true);
-	}
+	}*/
 	
 	for (int i=0; i<(sizeof(VisData)/sizeof(int)); i+=2) {
 		if (VisData[i] == GLX_DOUBLEBUFFER) {

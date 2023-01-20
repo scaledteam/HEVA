@@ -31,12 +31,6 @@
 #define FACE_FORM_Fun 3
 #define FACE_FORM_U 4
 
-#ifdef ALL_IN_ONE
-#include "./inih-r53/cpp/INIReader.h"
-#else
-#include "INIReader.h"
-#endif
-
 #include <dlib/filtering.h>
 
 #ifdef TRACKING_DISPLAY
@@ -168,51 +162,8 @@ void* dlib_thread1_function(void* data)
 {
 	dlib_thread_data* dlib_data = (dlib_thread_data*)data;
 	face_recognition_data* face_data = &dlib_data->face_data;
+	webcam_settings_t* webcam_settings = dlib_data->webcam_settings;
 	
-	// Import config
-	int webcamWidth = -1;
-	int webcamHeight = -1;
-	int webcamFps = -1;
-	bool webcamSetup = true;
-	bool webcamYUYV = false;
-	bool webcamLimitTo24or25 = false;
-	std::string webcamPreferredName = "";
-	int webcamPreferredId = -1;
-	std::string webcamFormat = "";
-	bool webcamSync = true;
-	bool webcamSyncType2 = true;
-	bool webcam_mouth_indirect = false;
-	float webcamGamma = 1.0;
-	int webcamBuffer = -1;
-	bool webcamEyeSync = true;
-	
-	INIReader reader(HEVA_CONFIG_PATH);
-	//INIReader reader("/home/scaled/projects/Urho3D/VTuberFace2/DlibThread.ini");
-	if (reader.ParseError() < 0) {
-		printf("Can't load 'test.ini'\n");
-	}
-	else {
-		printf("Ini loaded.\n");
-		
-		webcamPreferredName = reader.Get("webcam", "preferred_name", "");
-		webcamPreferredId = reader.GetInteger("webcam", "preferred_id", -1);
-		webcamFormat = reader.Get("webcam", "format", "");
-		
-		webcamSync = reader.GetBoolean("webcam", "sync", true);
-		webcamSyncType2 = reader.GetBoolean("webcam", "sync_type2", true);
-		webcam_mouth_indirect = reader.GetBoolean("webcam", "mouth_indirect", false);
-		webcamGamma = reader.GetReal("webcam", "gamma", 1.0);
-		webcamBuffer = reader.GetInteger("webcam", "buffer", -1);
-		
-		webcamSetup = reader.GetBoolean("webcam", "setup", true);
-		webcamWidth = reader.GetInteger("webcam", "width", -1);
-		webcamHeight = reader.GetInteger("webcam", "height", -1);
-		webcamFps = reader.GetInteger("webcam", "fps", -1);
-		webcamLimitTo24or25 = reader.GetBoolean("webcam", "limitTo24or25", false);
-		webcamYUYV = reader.GetBoolean("webcam", "optimised_YUYV_conversion", false);
-		
-		webcamEyeSync = reader.GetBoolean("webcam", "eye_sync", true);
-	}
 	
 	// Varriables
 	cv::VideoCapture cap;
@@ -301,23 +252,23 @@ void* dlib_thread1_function(void* data)
 	dlib::momentum_filter filterBrow = dlib::momentum_filter(32, 1, 3);
 	
 	cv::Mat gammaCorrectionLUT(1, 256, CV_8U);
-	if (webcamGamma != 1.0) {
+	if (webcam_settings->Gamma != 1.0) {
 		uchar* p = gammaCorrectionLUT.ptr();
 		for( int i = 0; i < 256; ++i)
-			p[i] = (unsigned char)(pow(i / 255.0, webcamGamma) * 255.0);
+			p[i] = (unsigned char)(pow(i / 255.0, webcam_settings->Gamma) * 255.0);
 	}
 	
 	// Init
 	// To reconnect camera
 	while (dlib_data->dlib_thread_active) {
 		// First priority webcam
-		if (webcamPreferredName != "")
-			cap = cv::VideoCapture(webcamPreferredName, WEBCAM_BACKEND);
+		if (webcam_settings->PreferredName != "")
+			cap = cv::VideoCapture(webcam_settings->PreferredName, WEBCAM_BACKEND);
 		
-		if (webcamPreferredId > 0 && !cap.isOpened())
-			cap = cv::VideoCapture(webcamPreferredId, WEBCAM_BACKEND);
+		if (webcam_settings->PreferredId > 0 && !cap.isOpened())
+			cap = cv::VideoCapture(webcam_settings->PreferredId, WEBCAM_BACKEND);
 		
-		// Generic webcam
+		// Generic webcam_settings->
 		if (!cap.isOpened())
 			for (int i = 0; i < 10; i++)
 				if (!cap.isOpened())
@@ -329,25 +280,25 @@ void* dlib_thread1_function(void* data)
 		// Necessary settings
 		if (cap.isOpened())
 		{
-			if (webcamSetup) {
-				if (webcamYUYV) {
+			if (webcam_settings->Setup) {
+				if (webcam_settings->YUYV) {
 					cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('Y', 'U', 'Y', 'V'));
 					cap.set(cv::CAP_PROP_CONVERT_RGB, false);
 				}
-				else if (webcamFormat != "") {
-					printf("format: %c %c %c %c\n", webcamFormat[0], webcamFormat[1], webcamFormat[2], webcamFormat[3]);
-					cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc(webcamFormat[0], webcamFormat[1], webcamFormat[2], webcamFormat[3]));
+				else if (webcam_settings->Format != "") {
+					printf("format: %c %c %c %c\n", webcam_settings->Format[0], webcam_settings->Format[1], webcam_settings->Format[2], webcam_settings->Format[3]);
+					cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc(webcam_settings->Format[0], webcam_settings->Format[1], webcam_settings->Format[2], webcam_settings->Format[3]));
 				}
 				
-				if (webcamWidth > 0 && webcamHeight > 0) {
-					cap.set(cv::CAP_PROP_FRAME_WIDTH, webcamWidth);
-					cap.set(cv::CAP_PROP_FRAME_HEIGHT, webcamHeight);
+				if (webcam_settings->Width > 0 && webcam_settings->Height > 0) {
+					cap.set(cv::CAP_PROP_FRAME_WIDTH, webcam_settings->Width);
+					cap.set(cv::CAP_PROP_FRAME_HEIGHT, webcam_settings->Height);
 				}
 				
-				if (webcamFps > 0) {
+				if (webcam_settings->Fps > 0) {
 					int fps = cap.get(cv::CAP_PROP_FPS);
 					
-					cap.set(cv::CAP_PROP_FPS, webcamFps);
+					cap.set(cv::CAP_PROP_FPS, webcam_settings->Fps);
 					
 					if(!cap.isOpened())
 						cap.set(cv::CAP_PROP_FPS, 30);
@@ -355,7 +306,7 @@ void* dlib_thread1_function(void* data)
 					if(!cap.isOpened())
 						cap.set(cv::CAP_PROP_FPS, fps);
 				}
-				else if (webcamLimitTo24or25) {
+				else if (webcam_settings->LimitTo24or25) {
 					int fps = cap.get(cv::CAP_PROP_FPS);
 					
 					cap.set(cv::CAP_PROP_FPS, 25);
@@ -370,24 +321,24 @@ void* dlib_thread1_function(void* data)
 						cap.set(cv::CAP_PROP_FPS, fps);
 				}
 				
-				if (webcamBuffer != -1) {
-					cap.set(cv::CAP_PROP_BUFFERSIZE, webcamBuffer);
+				if (webcam_settings->Buffer != -1) {
+					cap.set(cv::CAP_PROP_BUFFERSIZE, webcam_settings->Buffer);
 				}
 			}
 			
-			if (webcamWidth <= 0 || webcamHeight <= 0) {
-				webcamWidth = cap.get(cv::CAP_PROP_FRAME_WIDTH);
-				webcamHeight = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+			if (webcam_settings->Width <= 0 || webcam_settings->Height <= 0) {
+				webcam_settings->Width = cap.get(cv::CAP_PROP_FRAME_WIDTH);
+				webcam_settings->Height = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
 			}
 			cameraMatrix = (
 				cv::Mat_<double>(3,3) << 
-				(float)webcamHeight, 0, (float)webcamWidth/2,
-				0, (float)webcamHeight, (float)webcamHeight/2,
+				(float)webcam_settings->Height, 0, (float)webcam_settings->Width/2,
+				0, (float)webcam_settings->Height, (float)webcam_settings->Height/2,
 				0, 0, 1
 			);
 			printf("Resolution is %dx%d.\n", 
-				webcamWidth,
-				webcamHeight
+				webcam_settings->Width,
+				webcam_settings->Height
 			);
 			
 			dlib_data->dlib_thread_ready = 1;
@@ -406,16 +357,16 @@ void* dlib_thread1_function(void* data)
 				//if (cap.read(temp)) {
 				if (cap.grab()) {
 					// Send sync signal to main process (before recodnition to sync with camera)
-					if (webcamSync && webcamSyncType2)
+					if (webcam_settings->Sync && webcam_settings->SyncType2)
 						pthread_cond_signal(&dlib_data->dlib_thread_cond);
 					
 					cap.retrieve(temp);
 					
 					// translate to grayscale
 					cv::Mat mat;
-					cv::cvtColor(temp, mat, webcamYUYV ? cv::COLOR_YUV2GRAY_YUY2 : cv::COLOR_BGR2GRAY);
+					cv::cvtColor(temp, mat, webcam_settings->YUYV ? cv::COLOR_YUV2GRAY_YUY2 : cv::COLOR_BGR2GRAY);
 					
-					if (webcamGamma != 1.0) {
+					if (webcam_settings->Gamma != 1.0) {
 						LUT(mat, gammaCorrectionLUT, mat);
 					}
 					
@@ -564,7 +515,7 @@ void* dlib_thread1_function(void* data)
 						
 						
 						// Face
-						double distance_mul_2 = translation_vector.at<double>(2) * (-240.0 / webcamHeight);
+						double distance_mul_2 = translation_vector.at<double>(2) * (-240.0 / webcam_settings->Height);
 						
 						
 						// Mouth
@@ -575,7 +526,7 @@ void* dlib_thread1_function(void* data)
 						double mth_right_input = dlib::length((shape.part(52) + shape.part(58)) - 2 * shape.part(55)) * distance_mul_2;
 						
 						// moustache detected as mouth mitigation
-						if (webcam_mouth_indirect) {
+						if (webcam_settings->MouthIndirect) {
 							double nose_mouth = dlib::length(shape.part(31) - shape.part(67)  +  shape.part(35) - shape.part(65)) * 0.5 * distance_mul_2;
 							
 							if (first) {
@@ -720,7 +671,7 @@ void* dlib_thread1_function(void* data)
 						}
 						
 						double eye_sum = (eye_l - eye_l_offset + eye_r - eye_r_offset) * .5;
-						if (webcamEyeSync) {
+						if (webcam_settings->EyeSync) {
 							face_data->EYE_Close_L = clamp((eye_sum) * .4 - .05);
 							face_data->EYE_Close_R = clamp((eye_sum) * .4 - .05);
 						}
@@ -807,7 +758,7 @@ void* dlib_thread1_function(void* data)
 						}
 					}
 					// Send sync signal to main process (after recognition to reduce latency)
-					if (webcamSync && !webcamSyncType2)
+					if (webcam_settings->Sync && !webcam_settings->SyncType2)
 						pthread_cond_signal(&dlib_data->dlib_thread_cond);
 				}
 				else {
