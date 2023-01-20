@@ -181,6 +181,9 @@ static void createTheWindow()
 		CWColormap|
 		CWBorderPixel|
 		CWEventMask;
+		
+	//attr.override_redirect = 1;
+	//attr_mask |= CWOverrideRedirect;
 
 	/*width = DisplayWidth(Xdisplay, DefaultScreen(Xdisplay))/2;
 	height = DisplayHeight(Xdisplay, DefaultScreen(Xdisplay))/2;
@@ -328,6 +331,7 @@ static int updateTheMessageQueue()
 				xc = &(event.xconfigure);
 				width = xc->width;
 				height = xc->height;
+				//printf("%d, %d\n", width, height);
 				break;
 			
 			case KeyPress:
@@ -341,7 +345,7 @@ static int updateTheMessageQueue()
 
 int main(int argc, char *argv[])
 {
-	// Inih
+	// No comments
 	width = 550;
 	height = 800;
 	bool graphicsVsync = true;

@@ -5,13 +5,23 @@
 #define DLIB_THREAD_SIGNAL_NONE 0
 #define DLIB_THREAD_SIGNAL_RESET 1
 
+#define DLIB_THREAD_SIGNAL_CALIBRATE_MTH_Neutral 2
+#define DLIB_THREAD_SIGNAL_CALIBRATE_MTH_E 3
+#define DLIB_THREAD_SIGNAL_CALIBRATE_MTH_A 4
+#define DLIB_THREAD_SIGNAL_CALIBRATE_MTH_Fun 5
+#define DLIB_THREAD_SIGNAL_CALIBRATE_MTH_U 6
+
 #include <pthread.h>
+#include <dlib/opencv.h>
+#include <dlib/image_processing.h>
+#include <dlib/image_processing/frontal_face_detector.h>
 
 struct face_recognition_data {
 	double MTH_A;
 	double MTH_U;
 	double MTH_Fun;
 	double MTH_E;
+	double MTH_LeftRight;
 	double BRW_Fun;
 	double BRW_Angry;
 	double EYE_Close_L;
@@ -30,6 +40,19 @@ struct dlib_thread_data {
 	unsigned char dlib_thread_signal;
 	pthread_cond_t dlib_thread_cond;
 	face_recognition_data face_data;
+	
+	pthread_cond_t dlib_thread2_cond1;
+	pthread_cond_t dlib_thread2_cond2;
+	dlib::cv_image<unsigned char> cimg;
+	bool facesFound;
+	bool faceTracked;
+	dlib::correlation_tracker tracker;
+	double tracker_reference_psr;
+	dlib::point faceCenter;
+	dlib::rectangle faceRect;
+	
+	bool thread1_waiting;
 };
 
-void* dlib_thread_function(void* data);
+void* dlib_thread1_function(void* data);
+void* dlib_thread2_function(void* data);

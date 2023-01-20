@@ -42,7 +42,6 @@ public:
 
 private:
 	Urho3D::Scene* scene_;
-	Urho3D::Node* cameraNode_;
   	Urho3D::Engine* engine_;
   	Urho3D::Viewport* viewport_;
 	void* window_ = NULL;

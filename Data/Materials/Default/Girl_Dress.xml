@@ -1,6 +1,0 @@
-<?xml version="1.0" ?>
-<material>
-	<technique name="Techniques/DiffUnlit.xml" />
-	<texture name="Textures/Default/VRM-Default-17.png" unit="diffuse" />
-	<parameter name="MatDiffColor" value="1 1 1 1" />
-</material>

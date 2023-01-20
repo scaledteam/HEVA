@@ -1,2 +1,0 @@
-Materials/Default/Girl_Body.xml
-Materials/Default/Girl_Dress.xml

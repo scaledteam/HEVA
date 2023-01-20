@@ -15,7 +15,6 @@ endif ()
 # Set project name
 project (heva)
 
-
 set (WEBCAM_ENABLE ON CACHE BOOL "Enable dlib face recognitioni")
 set (X11_TRANSPARENT_WINDOW OFF CACHE BOOL "Transparent window support for X11 (linux only)")
 set (ALL_IN_ONE OFF CACHE BOOL "Build all depends together")
@@ -26,7 +25,8 @@ add_compile_definitions( HEVA_CONFIG_PATH=${HEVA_CONFIG_PATH} )
 if (ALL_IN_ONE)
 	add_compile_definitions( ALL_IN_ONE=${ALL_IN_ONE} )
 else()
-	set (URHO3D_HOME /usr/local/share/Urho3D)
+	#set (URHO3D_HOME /usr/local/share/Urho3D)
+	#set (URHO3D_HOME /home/scaled/git/Urho3D)
 endif()
 
 # Set CMake modules search path

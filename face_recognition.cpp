@@ -5,6 +5,7 @@
 //#define TRACKING_LOG
 //#define TRACKING_STRAIT
 //#define TRACKING_DISPLAY
+//#define TRACKING_THREADING_LOG
 
 #define POINTS_SMOOTHING .25
 #define POINTS_SMOOTHING_DISTANCE 12
@@ -56,6 +57,7 @@ dlib::image_window win;
 	#endif
 #endif
 
+
 double clamp(double value) {
 	return std::max(0.0, std::min(1.0, value));
 }
@@ -64,7 +66,105 @@ dlib::point dlib_rect_center(dlib::rectangle rect) {
 	return (rect.tl_corner() + rect.br_corner())*.5;
 }
 
-void* dlib_thread_function(void* data)
+pthread_mutex_t dlib_thread2_mutex_cimg = PTHREAD_MUTEX_INITIALIZER;
+
+void* dlib_thread2_function(void* data)
+{
+	dlib_thread_data* dlib_data = (dlib_thread_data*)data;
+	
+	dlib_data->faceCenter = dlib::point(-1, -1);
+	dlib_data->tracker_reference_psr = -1;
+	dlib_data->facesFound = false;
+	dlib_data->faceTracked = false;
+	dlib_data->tracker = dlib::correlation_tracker();
+	
+	// Load face detection and pose estimation models.
+	dlib::frontal_face_detector detector;
+	detector = dlib::get_frontal_face_detector();
+	
+	pthread_mutex_t dlib_thread2_mutex2 = PTHREAD_MUTEX_INITIALIZER;
+	
+	while (dlib_data->dlib_thread_active) {
+		// wait until signal is got
+		//printf("  -- 2 wait until signal is got\n");
+		
+		if (dlib_data->thread1_waiting) {
+			pthread_cond_signal(&dlib_data->dlib_thread2_cond1);
+			#ifdef TRACKING_THREADING_LOG
+			printf("  !! 2 thread is ready, but 1 still waiting\n");
+			#endif
+			continue;
+		}
+		
+		pthread_mutex_lock(&dlib_thread2_mutex2);
+		pthread_cond_wait(&dlib_data->dlib_thread2_cond2, &dlib_thread2_mutex2);
+		pthread_mutex_unlock(&dlib_thread2_mutex2);
+		
+		pthread_mutex_lock(&dlib_thread2_mutex_cimg);
+		#ifdef TRACKING_THREADING_LOG
+		printf("  -- 2 mutex locked\n");
+		#endif
+		std::vector<dlib::rectangle> faces = detector(dlib_data->cimg);
+		if (faces.size() > 0) {
+			dlib_data->facesFound = true;
+			
+			//printf("length: %f\n", (dlib_data->faceCenter - dlib_rect_center(faces[0])).length());
+			
+			int faceId = 0;
+			if (faces.size() > 1) {
+				printf("few faces detected:%d\n", faces.size());
+				
+				float length = (dlib_data->faceCenter - dlib_rect_center(faces[0])).length();
+				
+				for (int i = 1; i < faces.size(); i++) {
+					float length2 = (dlib_data->faceCenter - dlib_rect_center(faces[i])).length();
+					
+					if (length2 < length) {
+						length = length2;
+						faceId = i;
+					}
+				}
+			}
+			
+			dlib_data->faceRect = faces[faceId];
+			dlib_data->faceCenter = dlib_rect_center(faces[faceId]);
+			
+			// signal when face is detected
+			#ifdef TRACKING_THREADING_LOG
+			printf("1 <- 2 faces found, early signal\n");
+			#endif
+			pthread_cond_signal(&dlib_data->dlib_thread2_cond1);
+			
+			// Start tracking face in parallel
+			#ifndef TRACKING_STRAIT
+			dlib_data->tracker.start_track(dlib_data->cimg, faces[faceId]);
+			dlib_data->faceTracked = true;
+			dlib_data->tracker_reference_psr = -1;
+			#endif
+			#ifdef TRACKING_THREADING_LOG
+			printf("     2 tracked\n");
+			#endif
+		}
+		else {
+			dlib_data->facesFound = false;
+			#ifdef TRACKING_THREADING_LOG
+			printf("1 <- 2 faces not found\n");
+			#endif
+			pthread_cond_signal(&dlib_data->dlib_thread2_cond1);
+		}
+		pthread_mutex_unlock(&dlib_thread2_mutex_cimg);
+		
+		// signal to make sure it's not stuck
+		//printf("1 <- 2 send proper signal to continue working\n");
+		//pthread_cond_signal(&dlib_data->dlib_thread2_cond1);
+	}
+	
+	//printf("     2 thread stopped !!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+	
+	return NULL;
+}
+
+void* dlib_thread1_function(void* data)
 {
 	dlib_thread_data* dlib_data = (dlib_thread_data*)data;
 	face_recognition_data* face_data = &dlib_data->face_data;
@@ -84,6 +184,7 @@ void* dlib_thread_function(void* data)
 	bool webcam_mouth_indirect = false;
 	float webcamGamma = 1.0;
 	int webcamBuffer = -1;
+	bool webcamEyeSync = true;
 	
 	INIReader reader(HEVA_CONFIG_PATH);
 	//INIReader reader("/home/scaled/projects/Urho3D/VTuberFace2/DlibThread.ini");
@@ -109,13 +210,22 @@ void* dlib_thread_function(void* data)
 		webcamFps = reader.GetInteger("webcam", "fps", -1);
 		webcamLimitTo24or25 = reader.GetBoolean("webcam", "limitTo24or25", false);
 		webcamYUYV = reader.GetBoolean("webcam", "optimised_YUYV_conversion", false);
+		
+		webcamEyeSync = reader.GetBoolean("webcam", "eye_sync", true);
 	}
 	
 	// Varriables
 	cv::VideoCapture cap;
-	dlib::frontal_face_detector detector;
 	dlib::shape_predictor pose_model;
+	#ifdef ALL_IN_ONE
+	dlib::deserialize("shape_predictor_68_face_landmarks.dat") >> pose_model;
+	#else
+	dlib::deserialize("/usr/share/dlib/shape_predictor_68_face_landmarks.dat") >> pose_model;
+	#endif
 	
+	pthread_mutex_t dlib_thread2_mutex1 = PTHREAD_MUTEX_INITIALIZER;
+	dlib_data->thread1_waiting = false;
+
 	std::vector<cv::Point3d> modelPoints;
 	modelPoints.push_back(cv::Point3d(-0,		  0,		   0		 ));
 	modelPoints.push_back(cv::Point3d(-0,		 -0.33,	   -0.06500001));
@@ -123,9 +233,6 @@ void* dlib_thread_function(void* data)
 	modelPoints.push_back(cv::Point3d(-0.225,	  0.17,	   -0.135	 ));
 	modelPoints.push_back(cv::Point3d( 0.15,	  -0.15,	   -0.125	 ));
 	modelPoints.push_back(cv::Point3d(-0.15,	  -0.15,	   -0.125	 ));
-
-	dlib::correlation_tracker tracker;
-	double tracker_reference_psr = -1;
 
 	std::vector<cv::Point2d> imagePoints;
 	for (int i = 0; i < 6; i++)
@@ -165,24 +272,17 @@ void* dlib_thread_function(void* data)
 	
 	double adaptStrength = 1;
 	
-	dlib::point faceCenter(-1, -1);
-	bool facesFound = false;
-	bool faceTracked = false;
 	
 	/*double faceForms[] = {
-		0.42, 0.0,	// Neutral
-		0.68, 0.157,	// E
-		0.538, 0.305,	// A
-		0.76, 0.0,	// Fun
-		0.085, 0.0	// U
-	};*/
-	double faceForms[] = {
 		0.42, 0.0,	// Neutral
 		0.54, 0.16,	// E
 		0.42, 0.25,	// A
 		0.54, 0.0,	// Fun
 		0.32, 0.05	// U
-	};
+	};*/
+	
+	double faceForms[] = {0.377549, 0.023321, 0.429809, 0.051127, 0.397514, 0.151053, 0.454052, 0.007649, 0.371302, 0.108068};
+	
 	double faceFormsMultiplier = 6;
 	
 	double nose_mouth_old = 0;
@@ -190,23 +290,11 @@ void* dlib_thread_function(void* data)
 	double nose_mouth_average = 0;
 	double nose_mouth_distance = 0;
 	
-	// Load face detection and pose estimation models.
-	detector = dlib::get_frontal_face_detector();
-	#ifdef ALL_IN_ONE
-	dlib::deserialize("shape_predictor_68_face_landmarks.dat") >> pose_model;
-	#else
-	dlib::deserialize("/usr/share/dlib/shape_predictor_68_face_landmarks.dat") >> pose_model;
-	#endif
-	
 	// momentum_filter
 	// Filter arguments:
-	// measurement_noise
-	// typical_acceleration
-	// max_measurement_deviation
-	
-	/*dlib::momentum_filter filterMouthHeight = dlib::momentum_filter(0.003, 0.00001, 10.0);
-	dlib::momentum_filter filterMouthWidth = dlib::momentum_filter(0.003, 0.00001, 10.0);
-	dlib::momentum_filter filterBrow = dlib::momentum_filter(0.3, 0.0005, 7.0);*/
+	// 	measurement_noise
+	// 	typical_acceleration
+	// 	max_measurement_deviation
 	
 	dlib::momentum_filter filterMouthHeight = dlib::momentum_filter(2, 2, 3);
 	dlib::momentum_filter filterMouthWidth = dlib::momentum_filter(2, 2, 3);
@@ -310,9 +398,8 @@ void* dlib_thread_function(void* data)
 				if (dlib_data->dlib_thread_signal == DLIB_THREAD_SIGNAL_RESET) {
 					first = true;
 					firstCounter = 0;
+					dlib_data->dlib_thread_signal = DLIB_THREAD_SIGNAL_NONE;
 				}
-				
-				dlib_data->dlib_thread_signal = DLIB_THREAD_SIGNAL_NONE;
 				
 				// Do nothing for now, could be extended to eg. animate the display
 				cv::Mat temp;
@@ -332,86 +419,83 @@ void* dlib_thread_function(void* data)
 						LUT(mat, gammaCorrectionLUT, mat);
 					}
 					
-					dlib::cv_image<unsigned char> cimg(mat);
+					pthread_mutex_lock(&dlib_thread2_mutex_cimg);
+					#ifdef TRACKING_THREADING_LOG
+					printf("  -- 1 mutex locked\n");
+					#endif
+					dlib_data->cimg = dlib::cv_image<unsigned char>(mat);
+					pthread_mutex_unlock(&dlib_thread2_mutex_cimg);
 					
-					if (first || !faceTracked) {
-						std::vector<dlib::rectangle> faces = detector(cimg);
-						if (faces.size() > 0) {
-							facesFound = true;
-							
-							//printf("length: %f\n", (faceCenter - dlib_rect_center(faces[0])).length());
-							
-							int faceId = 0;
-							if (faces.size() > 1) {
-								printf("few faces detected:%d\n", faces.size());
-								
-								float length = (faceCenter - dlib_rect_center(faces[0])).length();
-								
-								for (int i = 1; i < faces.size(); i++) {
-									float length2 = (faceCenter - dlib_rect_center(faces[i])).length();
-									
-									if (length2 < length) {
-										length = length2;
-										faceId = i;
-									}
-								}
-							}
-							
-							shape = pose_model(cimg, faces[faceId]);
-							faceCenter = dlib_rect_center(faces[faceId]);
-							
-							#ifndef TRACKING_STRAIT
-							tracker.start_track(cimg, faces[faceId]);
-							faceTracked = true;
-							tracker_reference_psr = -1;
-							#endif
-						}
-						else {
-							facesFound = false;
-						}
+					if (first || !dlib_data->faceTracked) {
+						// send signal to work
+						#ifdef TRACKING_THREADING_LOG
+						printf("1 -> 2 send signal to work\n");
+						#endif
+						pthread_cond_signal(&dlib_data->dlib_thread2_cond2);
+						
+						// wait until face detected
+						pthread_mutex_lock(&dlib_thread2_mutex1);
+						dlib_data->thread1_waiting = true;
+						pthread_cond_wait(&dlib_data->dlib_thread2_cond1, &dlib_thread2_mutex1);
+						dlib_data->thread1_waiting = false;
+						pthread_mutex_unlock(&dlib_thread2_mutex1);
+						
+						// get shape
+						if (dlib_data->facesFound)
+							shape = pose_model(dlib_data->cimg, dlib_data->faceRect);
 					}
 					
 					#ifndef TRACKING_STRAIT
-					else if (faceTracked) {
-						double psr = tracker.update(cimg);
-						//double psr = tracker.update_noscale(cimg);
+					else if (dlib_data->faceTracked) {
+						double psr = dlib_data->tracker.update(dlib_data->cimg);
+						//double psr = dlib_data->tracker.update_noscale(cimg);
 						
-						if (tracker_reference_psr == -1)
-							tracker_reference_psr = psr;
+						if (dlib_data->tracker_reference_psr == -1)
+							dlib_data->tracker_reference_psr = psr;
 						
-						tracker_reference_psr += 0.01 * (psr - tracker_reference_psr);
+						dlib_data->tracker_reference_psr += 0.01 * (psr - dlib_data->tracker_reference_psr);
 						
-						//printf("%f\n", psr / tracker_reference_psr);
+						//printf("%f\n", psr / dlib_data->tracker_reference_psr);
 						
-						//if (psr > 0.7*tracker_reference_psr) {
-						if (psr > 0.8*tracker_reference_psr) {
-							shape = pose_model(cimg, tracker.get_position());
-							faceCenter = dlib_rect_center(tracker.get_position());
+						if (psr > 0.8*dlib_data->tracker_reference_psr) {
+							shape = pose_model(dlib_data->cimg, dlib_data->tracker.get_position());
+							dlib_data->faceCenter = dlib_rect_center(dlib_data->tracker.get_position());
 							#ifdef TRACKING_LOG
 							fputc('|', stdout);
 							#endif
 						}
-						//else if (psr > 0.5*tracker_reference_psr) {
-						else if (psr > 0.5*tracker_reference_psr) {
-							shape = pose_model(cimg, tracker.get_position());
-							faceCenter = dlib_rect_center(tracker.get_position());
-							faceTracked = false;
+						else if (psr > 0.5*dlib_data->tracker_reference_psr) {
+							shape = pose_model(dlib_data->cimg, dlib_data->tracker.get_position());
+							dlib_data->faceCenter = dlib_rect_center(dlib_data->tracker.get_position());
+							dlib_data->faceTracked = false;
 							#ifdef TRACKING_LOG
 							fputs(" - update reference\n", stdout);
 							#endif
+							
+							// ask to track in parallel
+							#ifdef TRACKING_THREADING_LOG
+							printf("1 -> 2 ask to track in parallel\n");
+							#endif
+							pthread_cond_signal(&dlib_data->dlib_thread2_cond2);
 						}
 						else {
-							faceTracked = false;
-							facesFound = false;
+							dlib_data->faceTracked = false;
+							dlib_data->facesFound = false;
 							#ifdef TRACKING_LOG
 							fputs(" - tracking lost\n", stdout);
 							#endif
+							
+							// ask to track in parallel
+							#ifdef TRACKING_THREADING_LOG
+							printf("1 -> 2 ask to track in parallel\n");
+							#endif
+							pthread_cond_signal(&dlib_data->dlib_thread2_cond2);
 						}
 					}
 					#endif
 					
 					// Find the pose of each face.
-					if (facesFound) {
+					if (shape.num_parts() > 0) {
 						if (first) {
 							for (int i = 0; i < 6; i++) {
 								imagePoints[i].x = shape.part(shapeParts[i]).x();
@@ -430,36 +514,24 @@ void* dlib_thread_function(void* data)
 						}
 						
 						cv::solvePnP(modelPoints, imagePoints, cameraMatrix, distCoeffs, rotation_vector, translation_vector, first, cv::SOLVEPNP_ITERATIVE);
-						//printf("%lf\n", adaptStrength);
-						
-						/*face_data->rotation1 = std::max(-90.0, std::min(90.0, face_data->rotation1));
-						face_data->rotation2 = std::max(-90.0, std::min(90.0, face_data->rotation2));
-						face_data->rotation3 = std::max(-90.0, std::min(90.0, face_data->rotation3));*/
-						
-						//printf("%f\n", translation_vector.at<double>(2));
-						//printf("%f, %f, %f\n", face_data->translation1, face_data->translation2, face_data->translation3);
-						//printf("%f, %f, %f\n", face_data->rotation1, face_data->rotation2, face_data->rotation3);
 						
 						if (
 							translation_vector.at<double>(2) > 0 
 							|| (translation_vector.at<double>(2) / translation_vector1.at<double>(2)) > 1.1
 							|| (translation_vector1.at<double>(2) / translation_vector.at<double>(2)) > 1.1
-							/*|| fabs(rotation_vector.at<double>(0))*180/3.1415 > 90
-							|| fabs(rotation_vector.at<double>(1))*180/3.1415 > 90
-							|| fabs(rotation_vector.at<double>(2))*180/3.1415 > 90*/
 						) {
 							#ifdef TRACKING_LOG
 							fputs("- Face data looks strange\n", stdout);
 							#endif
-							faceTracked = false;
-							facesFound = false;
+							dlib_data->faceTracked = false;
+							dlib_data->facesFound = false;
 							facesLostCounter = 10;
 							translation_vector = translation_vector1;
 							rotation_vector = rotation_vector1;
 						}
 					}
 					
-					if (facesFound) {
+					if (dlib_data->facesFound) {
 						if (first) {
 							adaptStrength = 1;
 							rotation_vector.copyTo(rotation_vector_offset);
@@ -499,10 +571,11 @@ void* dlib_thread_function(void* data)
 						double mth_width_input = dlib::length(shape.part(54) - shape.part(48)) * distance_mul_2 * 0.05;
 						double mth_height_input = dlib::length(shape.part(65) + shape.part(66) + shape.part(67) - shape.part(61) - shape.part(62) - shape.part(63)) * distance_mul_2 * 0.025;
 						
+						double mth_left_input = dlib::length((shape.part(52) + shape.part(58)) - 2 * shape.part(49)) * distance_mul_2;
+						double mth_right_input = dlib::length((shape.part(52) + shape.part(58)) - 2 * shape.part(55)) * distance_mul_2;
+						
 						// moustache detected as mouth mitigation
 						if (webcam_mouth_indirect) {
-							//double nose_mouth = dlib::length(shape.part(31) - shape.part(50)  +  shape.part(35) - shape.part(52)) * distance_mul_2;
-							//double nose_mouth = dlib::length(shape.part(31) - shape.part(61)  +  shape.part(35) - shape.part(63)) * 0.5 * distance_mul_2;
 							double nose_mouth = dlib::length(shape.part(31) - shape.part(67)  +  shape.part(35) - shape.part(65)) * 0.5 * distance_mul_2;
 							
 							if (first) {
@@ -534,28 +607,6 @@ void* dlib_thread_function(void* data)
 							
 							double mth_height_indirect = (dlib::length( (shape.part(31) + shape.part(35)) * 1.5 - shape.part(65) - shape.part(66) - shape.part(67)) / 3 * distance_mul_2 - nose_mouth_distance) * 0.075  * 0.9 + 0.15;
 							
-							//printf("%f\t%f\n", mth_height_input, mth_height_indirect);
-							
-							/*double mth_height_indirect = (dlib::length( (shape.part(31) + shape.part(35)) * 1.5 - shape.part(65) - shape.part(66) - shape.part(67)) / 3 * distance_mul_2) * 0.075;
-							
-							if (first) {
-								nose_mouth_average = mth_height_indirect;
-								mth_height_indirect = 0;
-							}
-							else {
-								mth_height_indirect -= nose_mouth_average;
-								nose_mouth_average += adaptStrength * ADAPT_SPEED_2 * mth_height_indirect;
-								mth_height_indirect += 0.1;
-							}*/
-							
-							// Mix with indirect
-							// Lowest
-							/*if (mth_height_input > mth_height_indirect)
-								mth_height_input = mth_height_indirect;*/
-							
-							// 50% - 50%
-							//mth_height_input = (mth_height_input + mth_height_indirect) * 0.5;
-							
 							// 100% indirect
 							mth_height_input = mth_height_indirect;
 						}
@@ -568,12 +619,11 @@ void* dlib_thread_function(void* data)
 						}
 						mth_width_input = filterMouthWidth(mth_width_input);
 						mth_height_input = filterMouthHeight(mth_height_input);
-						//printf("%f\n", mth_height_input);
 						
 						double height,width;
 						
 						width =  mth_width_input - faceForms[FACE_FORM_NEUTRAL * 2 + 0] * faceFormsMultiplier;
-						height = mth_height_input - faceForms[FACE_FORM_NEUTRAL * 2 + 1] * faceFormsMultiplier;
+						height = std::max(0.0, mth_height_input - faceForms[FACE_FORM_NEUTRAL * 2 + 1] * faceFormsMultiplier);
 						double faceForm_Neutral = 1 / std::max(0.01, width*width + height*height);
 						
 						width =  std::min(0.0, mth_width_input - faceForms[FACE_FORM_E * 2 + 0] * faceFormsMultiplier);
@@ -598,8 +648,39 @@ void* dlib_thread_function(void* data)
 						face_data->MTH_A = faceForm_A / faceForm_Sum;
 						face_data->MTH_Fun = faceForm_Fun / faceForm_Sum;
 						face_data->MTH_U = faceForm_U / faceForm_Sum;
-						//printf("faceForm_Neutral = %lf\nfaceForm_E = %lf\nfaceForm_A = %lf\nfaceForm_Fun = %lf\nfaceForm_U = %lf\nfaceForm_Sum = %lf\n",
-						//	faceForm_Neutral, faceForm_E, faceForm_A, faceForm_Fun, faceForm_U, faceForm_Sum);
+						
+						
+						// Calibrate
+						if (dlib_data->dlib_thread_signal == DLIB_THREAD_SIGNAL_CALIBRATE_MTH_Neutral) {
+							faceForms[FACE_FORM_NEUTRAL * 2 + 0] = mth_width_input / faceFormsMultiplier;
+							faceForms[FACE_FORM_NEUTRAL * 2 + 1] = mth_height_input / faceFormsMultiplier;
+						}
+						if (dlib_data->dlib_thread_signal == DLIB_THREAD_SIGNAL_CALIBRATE_MTH_E) {
+							faceForms[FACE_FORM_E * 2 + 0] = mth_width_input / faceFormsMultiplier;
+							faceForms[FACE_FORM_E * 2 + 1] = mth_height_input / faceFormsMultiplier;
+						}
+						if (dlib_data->dlib_thread_signal == DLIB_THREAD_SIGNAL_CALIBRATE_MTH_A) {
+							faceForms[FACE_FORM_A * 2 + 0] = mth_width_input / faceFormsMultiplier;
+							faceForms[FACE_FORM_A * 2 + 1] = mth_height_input / faceFormsMultiplier;
+						}
+						if (dlib_data->dlib_thread_signal == DLIB_THREAD_SIGNAL_CALIBRATE_MTH_Fun) {
+							faceForms[FACE_FORM_Fun * 2 + 0] = mth_width_input / faceFormsMultiplier;
+							faceForms[FACE_FORM_Fun * 2 + 1] = mth_height_input / faceFormsMultiplier;
+						}
+						if (dlib_data->dlib_thread_signal == DLIB_THREAD_SIGNAL_CALIBRATE_MTH_U) {
+							faceForms[FACE_FORM_U * 2 + 0] = mth_width_input / faceFormsMultiplier;
+							faceForms[FACE_FORM_U * 2 + 1] = mth_height_input / faceFormsMultiplier;
+						}
+						if (DLIB_THREAD_SIGNAL_CALIBRATE_MTH_Neutral <= dlib_data->dlib_thread_signal && dlib_data->dlib_thread_signal <= DLIB_THREAD_SIGNAL_CALIBRATE_MTH_U) {
+							fputs("double faceForms[] = {", stdout);
+							for (int i = 0; i < 9; i++)
+								printf("%f, ", faceForms[i]);
+							printf("%f", faceForms[9]);
+								
+							fputs("};\n", stdout);
+							
+							dlib_data->dlib_thread_signal = DLIB_THREAD_SIGNAL_NONE;
+						}
 						
 						// Brows
 						double brow_input = dlib::length(shape.part(19) + shape.part(24) - shape.part(27)*2) * distance_mul_2 * 0.4;
@@ -618,6 +699,13 @@ void* dlib_thread_function(void* data)
 						
 						double eye_l_input = dlib::length(shape.part(41) + shape.part(40) - shape.part(38) - shape.part(37)) * distance_mul_2 * -1.1;
 						double eye_r_input = dlib::length(shape.part(44) + shape.part(43) - shape.part(46) - shape.part(47)) * distance_mul_2 * -1.1;
+						if (abs(rotation_vector.at<double>(0)) > 0.2) {
+						        double eye_input_correction = -22 * (abs(rotation_vector.at<double>(0)) - 0.2);
+						        eye_l_input += eye_input_correction;
+						        eye_r_input += eye_input_correction;
+						}
+						//printf("%f\t%f\t%f\n", eye_l_input, eye_r_input, rotation_vector.at<double>(0));
+						
 						if (first) {
 							eye_l = eye_l_input;
 							eye_r = eye_r_input;
@@ -632,10 +720,14 @@ void* dlib_thread_function(void* data)
 						}
 						
 						double eye_sum = (eye_l - eye_l_offset + eye_r - eye_r_offset) * .5;
-						//*EYE_Close_L = pow(clamp((eye_sum) * .4 - .1), .75);
-						//*EYE_Close_R = pow(clamp((eye_sum) * .4 - .1), .75);
-						face_data->EYE_Close_L = clamp((eye_sum) * .4 - .05);
-						face_data->EYE_Close_R = clamp((eye_sum) * .4 - .05);
+						if (webcamEyeSync) {
+							face_data->EYE_Close_L = clamp((eye_sum) * .4 - .05);
+							face_data->EYE_Close_R = clamp((eye_sum) * .4 - .05);
+						}
+						else {
+							face_data->EYE_Close_L = clamp((eye_l - eye_l_offset) * .4 - .05);
+							face_data->EYE_Close_R = clamp((eye_r - eye_r_offset) * .4 - .05);
+						}
 						
 						if (first) {
 							first = false;
@@ -653,7 +745,9 @@ void* dlib_thread_function(void* data)
 						facesLostCounter++;
 						
 						if (facesLostCounter <= 2) {
-							//printf("%d\n", facesLostCounter);
+							#ifdef TRACKING_LOG
+							printf("Face lost counter: %d\n", facesLostCounter);
+							#endif
 							translation_vector3 = translation_vector2;
 							translation_vector2 = translation_vector1;
 							translation_vector1 = translation_vector;
@@ -661,15 +755,19 @@ void* dlib_thread_function(void* data)
 							rotation_vector2 = rotation_vector1;
 							rotation_vector1 = rotation_vector;
 							
-							// predicted pos = pos_old + velocity + acceleration
-							// predicted pos = pos_old + velocity + (velocity - velocity_old)
 							if (facesLostCounter == 1) {
 								translation_vector = translation_vector1 
 									+ (translation_vector1 - translation_vector2) 
-									+ ( (translation_vector1 - translation_vector2) - (translation_vector2 - translation_vector3) );
+									+ ( 
+										(translation_vector1 - translation_vector2) 
+										- (translation_vector2 - translation_vector3)
+									);
 								rotation_vector = rotation_vector1 
 									+ (rotation_vector1 - rotation_vector2) 
-									+ ( (rotation_vector1 - rotation_vector2) - (rotation_vector2 - rotation_vector3) );
+									+ ( 
+										(rotation_vector1 - rotation_vector2)
+										- (rotation_vector2 - rotation_vector3)
+									);
 							}
 							else {
 								translation_vector = translation_vector1 
@@ -708,7 +806,7 @@ void* dlib_thread_function(void* data)
 							}
 						}
 					}
-					// Send sync signal to main process (after recodnition to reduce latency)
+					// Send sync signal to main process (after recognition to reduce latency)
 					if (webcamSync && !webcamSyncType2)
 						pthread_cond_signal(&dlib_data->dlib_thread_cond);
 				}
@@ -718,6 +816,7 @@ void* dlib_thread_function(void* data)
 			}
 			
 			dlib_data->dlib_thread_ready = 0;
+			pthread_cond_signal(&dlib_data->dlib_thread2_cond2);
 			pthread_cond_signal(&dlib_data->dlib_thread_cond);
 			cap.release();
 		}
