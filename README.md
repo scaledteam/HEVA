@@ -33,18 +33,14 @@ cmake . \
 	-DURHO3D_URHO2D=NO \
 	-DURHO3D_LUAJIT=NO \
 	-DURHO3D_LUAJIT_AMALG=NO
-make \
-	-j$(nproc)
+make -j$(nproc)
 cd ..
 git clone https://github.com/scaledteam/HEVA
 mkdir build
 cd build
 # Change path to your own location
-cmake .. \
-	-DX11_TRANSPARENT_WINDOW=YES \
-	-DURHO3D_HOME=/home/$USER/Urho3D
-make \
-	-j$(nproc)
+cmake .. -DX11_TRANSPARENT_WINDOW=YES -DURHO3D_HOME=/home/$USER/Urho3D
+make -j$(nproc)
 ```
 
 ## Cross compiling from GNU/Linux for Windows
@@ -110,6 +106,6 @@ cmake ..  \
 	-DURHO3D_DEPLOYMENT_TARGET=generic \
 	-DALL_IN_ONE=YES \
 	-DVMC_OSC_SENDER=NO \
-    -DOpenCV_DIR=/home/scaled/projects/Urho3D/HEVA-Windows/opencv/build \
-    -DURHO3D_HOME=/home/scaled/projects/Urho3D/HEVA-Windows/Urho3D
+	-DOpenCV_DIR=/home/scaled/projects/Urho3D/HEVA-Windows/opencv/build \
+	-DURHO3D_HOME=/home/scaled/projects/Urho3D/HEVA-Windows/Urho3D
 ```
