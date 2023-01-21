@@ -1,5 +1,6 @@
 # HEVA
-HEVA - High Efficiency VTuber Avatar. Virtual avatar application, based on Urho3D and DLib.
+HEVA \
+	- High Efficiency VTuber Avatar. Virtual avatar application, based on Urho3D and DLib.
 
 Additional information can be found in this video: https://www.youtube.com/watch?v=ZNmIW92sFw8
 
@@ -19,15 +20,31 @@ Firstly you need to install DLib, OpenCV and Urho3D.
 ```sh
 git clone https://github.com/urho3d/Urho3D
 cd Urho3D
-cmake . -DURHO3D_TOOLS=NO -DURHO3D_ANGELSCRIPT=NO -DURHO3D_LUA=NO -DURHO3D_NETWORK=NO -DURHO3D_SAMPLES=NO -DURHO3D_WEBP=NO -DURHO3D_IK=NO -DURHO3D_THREADING=NO -DURHO3D_NAVIGATION=NO -DURHO3D_URHO2D=NO -DURHO3D_LUAJIT=NO -DURHO3D_LUAJIT_AMALG=NO
-make -j$(nproc)
+cmake . \
+	-DURHO3D_TOOLS=NO \
+	-DURHO3D_ANGELSCRIPT=NO \
+	-DURHO3D_LUA=NO \
+	-DURHO3D_NETWORK=NO \
+	-DURHO3D_SAMPLES=NO \
+	-DURHO3D_WEBP=NO \
+	-DURHO3D_IK=NO \
+	-DURHO3D_THREADING=NO \
+	-DURHO3D_NAVIGATION=NO \
+	-DURHO3D_URHO2D=NO \
+	-DURHO3D_LUAJIT=NO \
+	-DURHO3D_LUAJIT_AMALG=NO
+make \
+	-j$(nproc)
 cd ..
 git clone https://github.com/scaledteam/HEVA
 mkdir build
 cd build
 # Change path to your own location
-cmake .. -DX11_TRANSPARENT_WINDOW=YES -DURHO3D_HOME=/home/$USER/Urho3D
-make -j$(nproc)
+cmake .. \
+	-DX11_TRANSPARENT_WINDOW=YES \
+	-DURHO3D_HOME=/home/$USER/Urho3D
+make \
+	-j$(nproc)
 ```
 
 ## Cross compiling from GNU/Linux for Windows
@@ -44,26 +61,55 @@ Copy this 2 releases into HEVA folder
 
 Build Urho3D
 ```sh
-# Urho3D Crossbuild
-cmake .  -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_CXX_COMPILER=/usr/bin/x86_64-w64-mingw32-g++ -DCMAKE_CXX_COMPILER_AR=/usr/bin/x86_64-w64-mingw32-ar -DCMAKE_CXX_COMPILER_RANLIB=/usr/bin/x86_64-w64-mingw32-ranlib -DCMAKE_C_COMPILER=/usr/bin/x86_64-w64-mingw32-gcc -DCMAKE_C_COMPILER_AR=/usr/bin/x86_64-w64-mingw32-ar -DCMAKE_C_COMPILER_RANLIB=/usr/bin/x86_64-w64-mingw32-ranlib   -DURHO3D_DEPLOYMENT_TARGET=generic -DURHO3D_TOOLS=NO -DURHO3D_ANGELSCRIPT=NO -DURHO3D_LUA=NO -DURHO3D_NETWORK=NO -DURHO3D_SAMPLES=NO -DURHO3D_WEBP=NO -DURHO3D_IK=NO -DURHO3D_THREADING=NO -DURHO3D_NAVIGATION=NO -DURHO3D_URHO2D=NO -DURHO3D_LUAJIT=NO -DURHO3D_LUAJIT_AMALG=NO -DWIN32=1 -DURHO3D_D3D11=NO
+cmake . \
+	-DCMAKE_SYSTEM_NAME=Windows \
+	-DCMAKE_CXX_COMPILER=/usr/bin/x86_64-w64-mingw32-g++ \
+	-DCMAKE_C_COMPILER=/usr/bin/x86_64-w64-mingw32-gcc   \
+	-DURHO3D_DEPLOYMENT_TARGET=generic \
+	-DURHO3D_TOOLS=NO \
+	-DURHO3D_ANGELSCRIPT=NO \
+	-DURHO3D_LUA=NO \
+	-DURHO3D_NETWORK=NO \
+	-DURHO3D_SAMPLES=NO \
+	-DURHO3D_WEBP=NO \
+	-DURHO3D_IK=NO \
+	-DURHO3D_THREADING=NO \
+	-DURHO3D_NAVIGATION=NO \
+	-DURHO3D_URHO2D=NO \
+	-DURHO3D_LUAJIT=NO \
+	-DURHO3D_LUAJIT_AMALG=NO \
+	-DWIN32=1 \
+	-DURHO3D_D3D11=NO
 ```
 
 Build OpenCV
 ```sh
-# OpenCV crossbuild
-cmake .. -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_CXX_COMPILER=/usr/bin/x86_64-w64-mingw32-g++-posix -DCMAKE_CXX_COMPILER_AR=/usr/bin/x86_64-w64-mingw32-ar -DCMAKE_CXX_COMPILER_RANLIB=/usr/bin/x86_64-w64-mingw32-ranlib -DCMAKE_C_COMPILER=/usr/bin/x86_64-w64-mingw32-gcc-posix -DCMAKE_C_COMPILER_AR=/usr/bin/x86_64-w64-mingw32-ar -DCMAKE_C_COMPILER_RANLIB=/usr/bin/x86_64-w64-mingw32-ranlib -DWITH_OPENCLAMDBLAS=NO -DWITH_LAPACK=NO -DWITH_FFMPEG=NO -DBUILD_SHARED_LIBS=NO
-```
-
-Build dlib
-```
-cmake .. -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_CXX_COMPILER=/usr/bin/x86_64-w64-mingw32-g++-posix -DCMAKE_C_COMPILER=/usr/bin/x86_64-w64-mingw32-gcc-posix -DDLIB_JPEG_SUPPORT=NO -DDLIB_GIF_SUPPORT=NO -DDLIB_PNG_SUPPORT=NO -DDLIB_NO_GUI_SUPPORT=YES -DDLIB_USE_LAPACK=NO -DDLIB_USE_CUDA=NO
+cmake .. \
+	-DCMAKE_SYSTEM_NAME=Windows \
+	-DCMAKE_CXX_COMPILER=/usr/bin/x86_64-w64-mingw32-g++-posix \
+	-DCMAKE_C_COMPILER=/usr/bin/x86_64-w64-mingw32-gcc-posix \
+	-DWITH_OPENCLAMDBLAS=NO \
+	-DWITH_LAPACK=NO \
+	-DWITH_FFMPEG=NO \
+	-DBUILD_SHARED_LIBS=NO
 ```
 
 Build HEVA, change paths at the end to locations where you built Urho3D and OpenCV.
 
 ```sh
-# HEVA Crossbuild
-cmake ..  -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_CXX_COMPILER=/usr/bin/x86_64-w64-mingw32-g++-posix -DCMAKE_CXX_COMPILER_AR=/usr/bin/x86_64-w64-mingw32-ar -DCMAKE_CXX_COMPILER_RANLIB=/usr/bin/x86_64-w64-mingw32-ranlib -DCMAKE_C_COMPILER=/usr/bin/x86_64-w64-mingw32-gcc-posix -DCMAKE_C_COMPILER_AR=/usr/bin/x86_64-w64-mingw32-ar -DCMAKE_C_COMPILER_RANLIB=/usr/bin/x86_64-w64-mingw32-ranlib -DURHO3D_DEPLOYMENT_TARGET=generic  -DURHO3D_DEPLOYMENT_TARGET=generic -DALL_IN_ONE=YES -DVMC_OSC_SENDER=NO \
--DOpenCV_DIR=/home/scaled/projects/Urho3D/HEVA-Windows/opencv/build \
--DURHO3D_HOME=/home/scaled/projects/Urho3D/HEVA-Windows/Urho3D
+cmake ..  \
+	-DCMAKE_SYSTEM_NAME=Windows \
+	-DCMAKE_CXX_COMPILER=/usr/bin/x86_64-w64-mingw32-g++-posix \
+	-DCMAKE_C_COMPILER=/usr/bin/x86_64-w64-mingw32-gcc-posix  \
+	-DDLIB_GIF_SUPPORT=NO \
+	-DDLIB_PNG_SUPPORT=NO \
+	-DDLIB_NO_GUI_SUPPORT=YES \
+	-DDLIB_USE_LAPACK=NO \
+	-DDLIB_USE_CUDA=NO \
+	-DURHO3D_DEPLOYMENT_TARGET=generic  \
+	-DURHO3D_DEPLOYMENT_TARGET=generic \
+	-DALL_IN_ONE=YES \
+	-DVMC_OSC_SENDER=NO \
+    -DOpenCV_DIR=/home/scaled/projects/Urho3D/HEVA-Windows/opencv/build \
+    -DURHO3D_HOME=/home/scaled/projects/Urho3D/HEVA-Windows/Urho3D
 ```
