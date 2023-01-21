@@ -20,7 +20,7 @@
 			<attribute name="Variables" />
 			<component type="AnimatedModel" id="4">
 				<attribute name="Model" value="Model;Models/Girl_Body.mdl" />
-				<attribute name="Material" value="Material;Materials/Girl_Body.xml;Materials/Girl_Dress.xml" />
+				<attribute name="Material" value="Material;Materials/Girl_Body.xml;Materials/Girl_Dress.xml;Materials/Table.xml" />
 			</component>
 		</node>
 	</node>

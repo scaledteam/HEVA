@@ -97,6 +97,7 @@ cmake ..  \
 	-DCMAKE_SYSTEM_NAME=Windows \
 	-DCMAKE_CXX_COMPILER=/usr/bin/x86_64-w64-mingw32-g++-posix \
 	-DCMAKE_C_COMPILER=/usr/bin/x86_64-w64-mingw32-gcc-posix  \
+	-DDLIB_JPEG_SUPPORT=NO \
 	-DDLIB_GIF_SUPPORT=NO \
 	-DDLIB_PNG_SUPPORT=NO \
 	-DDLIB_NO_GUI_SUPPORT=YES \

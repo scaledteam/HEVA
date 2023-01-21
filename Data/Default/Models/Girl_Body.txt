@@ -1,2 +1,3 @@
 Materials/Girl_Body.xml
 Materials/Girl_Dress.xml
+Materials/Table.xml
