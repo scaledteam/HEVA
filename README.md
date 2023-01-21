@@ -54,11 +54,16 @@ Build OpenCV
 cmake .. -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_CXX_COMPILER=/usr/bin/x86_64-w64-mingw32-g++-posix -DCMAKE_CXX_COMPILER_AR=/usr/bin/x86_64-w64-mingw32-ar -DCMAKE_CXX_COMPILER_RANLIB=/usr/bin/x86_64-w64-mingw32-ranlib -DCMAKE_C_COMPILER=/usr/bin/x86_64-w64-mingw32-gcc-posix -DCMAKE_C_COMPILER_AR=/usr/bin/x86_64-w64-mingw32-ar -DCMAKE_C_COMPILER_RANLIB=/usr/bin/x86_64-w64-mingw32-ranlib -DWITH_OPENCLAMDBLAS=NO -DWITH_LAPACK=NO -DWITH_FFMPEG=NO -DBUILD_SHARED_LIBS=NO
 ```
 
+Build dlib
+```
+cmake .. -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_CXX_COMPILER=/usr/bin/x86_64-w64-mingw32-g++-posix -DCMAKE_C_COMPILER=/usr/bin/x86_64-w64-mingw32-gcc-posix -DDLIB_JPEG_SUPPORT=NO -DDLIB_GIF_SUPPORT=NO -DDLIB_PNG_SUPPORT=NO -DDLIB_NO_GUI_SUPPORT=YES -DDLIB_USE_LAPACK=NO -DDLIB_USE_CUDA=NO
+```
+
 Build HEVA, change paths at the end to locations where you built Urho3D and OpenCV.
 
 ```sh
 # HEVA Crossbuild
-cmake ..  -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_CXX_COMPILER=/usr/bin/x86_64-w64-mingw32-g++-posix -DCMAKE_CXX_COMPILER_AR=/usr/bin/x86_64-w64-mingw32-ar -DCMAKE_CXX_COMPILER_RANLIB=/usr/bin/x86_64-w64-mingw32-ranlib -DCMAKE_C_COMPILER=/usr/bin/x86_64-w64-mingw32-gcc-posix -DCMAKE_C_COMPILER_AR=/usr/bin/x86_64-w64-mingw32-ar -DCMAKE_C_COMPILER_RANLIB=/usr/bin/x86_64-w64-mingw32-ranlib -DURHO3D_DEPLOYMENT_TARGET=generic -DDLIB_JPEG_SUPPORT=NO -DDLIB_GIF_SUPPORT=NO -DDLIB_PNG_SUPPORT=NO -DDLIB_NO_GUI_SUPPORT=YES -DDLIB_USE_LAPACK=NO -DDLIB_USE_CUDA=NO  -DURHO3D_DEPLOYMENT_TARGET=generic -DALL_IN_ONE=YES -DVMC_OSC_SENDER=NO \
+cmake ..  -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_CXX_COMPILER=/usr/bin/x86_64-w64-mingw32-g++-posix -DCMAKE_CXX_COMPILER_AR=/usr/bin/x86_64-w64-mingw32-ar -DCMAKE_CXX_COMPILER_RANLIB=/usr/bin/x86_64-w64-mingw32-ranlib -DCMAKE_C_COMPILER=/usr/bin/x86_64-w64-mingw32-gcc-posix -DCMAKE_C_COMPILER_AR=/usr/bin/x86_64-w64-mingw32-ar -DCMAKE_C_COMPILER_RANLIB=/usr/bin/x86_64-w64-mingw32-ranlib -DURHO3D_DEPLOYMENT_TARGET=generic  -DURHO3D_DEPLOYMENT_TARGET=generic -DALL_IN_ONE=YES -DVMC_OSC_SENDER=NO \
 -DOpenCV_DIR=/home/scaled/projects/Urho3D/HEVA-Windows/opencv/build \
--DURHO3D_HOME=/home/scaled/projects/Urho3D/HEVA-Windows/Urho3D 
+-DURHO3D_HOME=/home/scaled/projects/Urho3D/HEVA-Windows/Urho3D
 ```

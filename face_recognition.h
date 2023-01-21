@@ -52,6 +52,7 @@ struct webcam_settings_t {
 	float Gamma = 1.0;
 	int Buffer = -1;
 	bool EyeSync = true;
+	char shapePredictorPath[256] = "";
 };
 
 struct dlib_thread_data {

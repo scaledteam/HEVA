@@ -168,11 +168,7 @@ void* dlib_thread1_function(void* data)
 	// Varriables
 	cv::VideoCapture cap;
 	dlib::shape_predictor pose_model;
-	#ifdef ALL_IN_ONE
-	dlib::deserialize("shape_predictor_68_face_landmarks.dat") >> pose_model;
-	#else
-	dlib::deserialize("/usr/share/dlib/shape_predictor_68_face_landmarks.dat") >> pose_model;
-	#endif
+	dlib::deserialize(webcam_settings->shapePredictorPath) >> pose_model;
 	
 	pthread_mutex_t dlib_thread2_mutex1 = PTHREAD_MUTEX_INITIALIZER;
 	dlib_data->thread1_waiting = false;

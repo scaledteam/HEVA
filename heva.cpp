@@ -152,6 +152,12 @@ void Heva::Setup()
 		
 	}
 	
+	#ifdef ALL_IN_ONE
+	strcpy(webcam_settings->shapePredictorPath, (fileSystem->GetProgramDir() + "shape_predictor_68_face_landmarks.dat").GetBuffer());
+	#else
+	strcpy(webcam_settings->shapePredictorPath, "/usr/share/dlib/shape_predictor_68_face_landmarks.dat");
+	#endif
+	
 	#ifdef X11_TRANSPARENT_WINDOW
 	Urho3D::VariantMap engineParameters_;
 	#endif
