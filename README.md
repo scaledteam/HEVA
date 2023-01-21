@@ -1,13 +1,20 @@
 # HEVA
-HEVA \
-	- High Efficiency VTuber Avatar. Virtual avatar application, based on Urho3D and DLib.
+HEVA - High Efficiency VTuber Avatar. Virtual avatar application, based on Urho3D and DLib.
 
-Additional information can be found in this video: https://www.youtube.com/watch?v=ZNmIW92sFw8
+Additional information can be found in this streams: 
+
+* https://www.youtube.com/watch?v=ZNmIW92sFw8
+* https://www.youtube.com/watch?v=J8JZ56pLK_A
+* https://www.youtube.com/watch?v=gs9WXCEpbuY
 
 ## Usage
 For windows, just download latest release and unpack. Launch `heva.exe` . To configure HEVA, edit `heva.ini` file.
 
 https://github.com/scaledteam/HEVA/releases/
+
+To make you own model, you need this Blender Plugin: https://github.com/urho3d-tools/blender-exporter/
+
+Also, repository contain sources (.blend file) of default character, which you can use any way you like: https://github.com/scaledteam/HEVA/blob/main/BlenderModels/Default%20Character.blend
 
 ## Compiling for GNU/Linux
 Firstly you need to install DLib, OpenCV and Urho3D.
