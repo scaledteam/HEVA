@@ -52,15 +52,15 @@ make -j$(nproc)
 
 ## Cross compiling from GNU/Linux for Windows
 
-Clone this 4 repositories somewhere
+Clone this 2 repositories somewhere
 
 1. Urho3D: https://github.com/urho3d/Urho3D
 2. OpenCV: https://github.com/opencv/opencv
 
-Copy this 2 releases into HEVA folder
+Clone this 2 repositories into HEVA folder
 
-1. https://github.com/davisking/dlib/releases/tag/v19.21
-2. https://github.com/benhoyt/inih/releases/tag/r53
+1. https://github.com/davisking/dlib
+2. https://github.com/benhoyt/inih
 
 Build Urho3D
 ```sh
