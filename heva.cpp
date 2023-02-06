@@ -39,7 +39,7 @@
 
 // inih
 #ifdef ALL_IN_ONE
-#include "./inih-r53/cpp/INIReader.h"
+#include "./inih/cpp/INIReader.h"
 #else
 #include "INIReader.h"
 #endif

@@ -50,7 +50,7 @@ if (VMC_OSC_SENDER)
 	add_compile_definitions( VMC_OSC_SENDER=${VMC_OSC_SENDER} )
 endif()
 if (ALL_IN_ONE)
-	set (SOURCE_FILES ${SOURCE_FILES} inih-r53/cpp/INIReader.h inih-r53/cpp/INIReader.cpp inih-r53/ini.h inih-r53/ini.c)
+	set (SOURCE_FILES ${SOURCE_FILES} inih/cpp/INIReader.h inih/cpp/INIReader.cpp inih/ini.h inih/ini.c)
 endif()
 
 #define_resource_dirs (GLOB_PATTERNS ${CMAKE_SOURCE_DIR}/Data ${URHO3D_HOME}/bin/CoreData)
@@ -61,7 +61,7 @@ setup_main_executable ()
 # Link to OpenCV
 if (WEBCAM_ENABLE)
 	if (ALL_IN_ONE)
-		add_subdirectory(${CMAKE_SOURCE_DIR}/dlib-19.21 dlib_build)
+		add_subdirectory(${CMAKE_SOURCE_DIR}/dlib dlib_build)
 
 		find_package (OpenCV REQUIRED)
 		if (OpenCV_FOUND)
