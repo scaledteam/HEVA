@@ -14,7 +14,6 @@
 #define HEVA_CONFIG_PATH "heva.ini"
 
 #include <pthread.h>
-#include <dlib/opencv.h>
 #include <dlib/image_processing.h>
 #include <dlib/image_processing/frontal_face_detector.h>
 
@@ -65,7 +64,6 @@ struct dlib_thread_data {
 	
 	pthread_cond_t dlib_thread2_cond1;
 	pthread_cond_t dlib_thread2_cond2;
-	dlib::cv_image<unsigned char> cimg;
 	bool facesFound;
 	bool faceTracked;
 	dlib::correlation_tracker tracker;
