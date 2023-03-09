@@ -244,6 +244,7 @@ StringHash hash_MTH_Fun;
 StringHash hash_BRW_Fun;
 StringHash hash_BRW_Angry;
 StringHash hash_EYE_Angry;
+StringHash hash_EYE_Close;
 StringHash hash_EYE_Close_L;
 StringHash hash_EYE_Close_R;
 
@@ -530,6 +531,7 @@ void Heva::Start()
 	hash_BRW_Fun = StringHash("BRW_Fun");
 	hash_BRW_Angry = StringHash("BRW_Angry");
 	hash_EYE_Angry = StringHash("EYE_Angry");
+	hash_EYE_Close = StringHash("EYE_Close");
 	hash_EYE_Close_L = StringHash("EYE_Close_L");
 	hash_EYE_Close_R = StringHash("EYE_Close_R");
 	
@@ -727,6 +729,7 @@ void Heva::HandleUpdate(StringHash eventType, VariantMap& eventData)
 	modelObject->SetMorphWeight(hash_BRW_Fun, face_data->BRW_Fun);
 	modelObject->SetMorphWeight(hash_BRW_Angry, face_data->BRW_Angry);
 	modelObject->SetMorphWeight(hash_EYE_Angry, face_data->BRW_Angry);
+	modelObject->SetMorphWeight(hash_EYE_Close, face_data->EYE_Close);
 	modelObject->SetMorphWeight(hash_EYE_Close_L, face_data->EYE_Close_L);
 	modelObject->SetMorphWeight(hash_EYE_Close_R, face_data->EYE_Close_R);
 	#endif
@@ -742,6 +745,7 @@ void Heva::HandleUpdate(StringHash eventType, VariantMap& eventData)
 		vmc_osc_sender_data->MTH_E = face_data->MTH_E;
 		vmc_osc_sender_data->BRW_Fun = face_data->BRW_Fun;
 		vmc_osc_sender_data->BRW_Angry = face_data->BRW_Angry;
+		vmc_osc_sender_data->EYE_Close = face_data->EYE_Close;
 		vmc_osc_sender_data->EYE_Close_L = face_data->EYE_Close_L;
 		vmc_osc_sender_data->EYE_Close_R = face_data->EYE_Close_R;
 		pthread_cond_signal(&vmc_osc_sender_data->cond);

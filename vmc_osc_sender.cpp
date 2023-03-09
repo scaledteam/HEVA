@@ -52,6 +52,7 @@ void* vmc_osc_sender_thread_function(void* arg)
 		tosc_writeNextMessage(&bundle, "/VMC/Ext/Blend/Val", "sf", "U", data->MTH_U);
 		tosc_writeNextMessage(&bundle, "/VMC/Ext/Blend/Val", "sf", "E", data->MTH_E);
 		tosc_writeNextMessage(&bundle, "/VMC/Ext/Blend/Val", "sf", "Fun", data->MTH_Fun);
+		tosc_writeNextMessage(&bundle, "/VMC/Ext/Blend/Val", "sf", "Blink", data->EYE_Close);
 		tosc_writeNextMessage(&bundle, "/VMC/Ext/Blend/Val", "sf", "Blink_L", data->EYE_Close_L);
 		tosc_writeNextMessage(&bundle, "/VMC/Ext/Blend/Val", "sf", "Blink_R", data->EYE_Close_R);
 		tosc_writeNextMessage(&bundle, "/VMC/Ext/Blend/Val", "sf", "BrowsDownUp", data->BRW_Fun-data->BRW_Angry);

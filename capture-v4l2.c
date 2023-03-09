@@ -33,6 +33,11 @@ unsigned int num_buffers;
 struct v4l2_requestbuffers reqbuf = {0};
 
 struct buffer_t *buffers;
+int v4l2_works = 0;
+
+static int capture_status() {
+    return v4l2_works;
+}
 
 /**
  * Wrapper around ioctl calls.
@@ -95,10 +100,8 @@ static void init_device(char DeviceName[256]) {
   // Open the device file
   fd = open(DeviceName, O_RDWR);
   if (fd < 0) {
-    fd = open("/dev/video0", O_RDWR);
-  }
-  if (fd < 0) {
-    perror(DeviceName);
+    //perror(DeviceName);
+    return;
   }
 
   struct v4l2_fmtdesc fmtdesc = {0};
@@ -135,6 +138,8 @@ static void init_device(char DeviceName[256]) {
          fmt.fmt.pix.width, fmt.fmt.pix.height, format_code, fmt.fmt.pix.field);
 
   init_mmap();
+  
+  v4l2_works = 1;
 }
 
 static void start_capturing(void) {
@@ -291,8 +296,10 @@ static int read_frame(void *data) {
     case EIO:
       // fall through
     default:
-      perror("VIDIOC_DQBUF");
-      exit(errno);
+      //perror("VIDIOC_DQBUF");
+      //exit(errno);
+      v4l2_works = 0;
+      return -1;
     }
   }
 
@@ -315,7 +322,7 @@ static int read_frame(void *data) {
  * See
  * https://www.gnu.org/software/libc/manual/html_node/Waiting-for-I_002fO.html
  */
-static void main_loop(void *data) {
+static void capture_frame(void *data) {
   fd_set fds;
   struct timeval tv;
   int r;
@@ -351,8 +358,10 @@ static void main_loop(void *data) {
     }
 
     if (0 == r) {
-      fprintf(stderr, "select timeout\n");
-      exit(EXIT_FAILURE);
+      //fprintf(stderr, "select timeout\n");
+      //exit(EXIT_FAILURE);
+      v4l2_works = 0;
+      return;
     }
 
     if (read_frame(data))
@@ -362,7 +371,7 @@ static void main_loop(void *data) {
   }
 }
 
-static void cleanup() {
+static void capture_cleanup() {
   for (unsigned int i = 0; i < reqbuf.count; i++)
     munmap(buffers[i].start, buffers[i].length);
   free(buffers);

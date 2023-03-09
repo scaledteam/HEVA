@@ -20,6 +20,7 @@ struct vmc_osc_data {
 	double MTH_E;
 	double BRW_Fun;
 	double BRW_Angry;
+	double EYE_Close;
 	double EYE_Close_L;
 	double EYE_Close_R;
 };

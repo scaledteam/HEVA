@@ -25,6 +25,7 @@ struct face_recognition_data {
 	double MTH_LeftRight;
 	double BRW_Fun;
 	double BRW_Angry;
+	double EYE_Close;
 	double EYE_Close_L;
 	double EYE_Close_R;
 	double rotation1;

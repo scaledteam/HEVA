@@ -241,6 +241,9 @@ void *dlib_thread1_function(void *data) {
     //cimg = dlib::array2d<unsigned char>(webcam_settings->Height, webcam_settings->Width);
     cimg.set_size(webcam_settings->Height, webcam_settings->Width);
     init_device(webcam_settings->PreferredName);
+    
+    if (!capture_status())
+      init_device("/dev/video0");
 
     start_capturing();
 
@@ -342,8 +345,18 @@ void *dlib_thread1_function(void *data) {
           printf("  -- 1 mutex locked\n");
           #endif
           //cimg = dlib::cv_image<unsigned char>(mat);
-          main_loop(data);
+          capture_frame(data);
           pthread_mutex_unlock(&dlib_thread2_mutex_cimg);
+          
+          if (!capture_status()) {
+            //capture_cleanup();
+            dlib::sleep(2000);
+            
+            init_device(webcam_settings->PreferredName);
+            if (capture_status())
+              start_capturing();
+            continue;
+          }
 
           if (first || !dlib_data->faceTracked) {
             // send signal to work
@@ -477,7 +490,7 @@ void *dlib_thread1_function(void *data) {
                 -10 *
                 (dlib::length(cheek1_center - cheek1_actual) +
                  dlib::length(cheek2_center - cheek2_actual)) /
-                webcam_settings->Height;
+                webcam_settings->Height + 1.45;
 
             //printf("%f\t%f\t%f\n", rotation_vector.x(), rotation_vector.y(), rotation_vector.z());
           }
@@ -529,8 +542,9 @@ void *dlib_thread1_function(void *data) {
                                       translation_vector_offset.z();
 
             // Face
-            double distance_mul_2 = translation_vector.z() *
-                                    (-240.0 / webcam_settings->Height);
+            //double distance_mul_2 = translation_vector.z() * (-240.0 / webcam_settings->Height);
+            double distance_mul_2 = 0.35 * webcam_settings->Height / dlib::length(shape.part(16) - shape.part(0));
+            //printf("%f\t%f\n", distance_mul_2, 0.35 * webcam_settings->Height / dlib::length(shape.part(16) - shape.part(0)));
 
             // Mouth
             double mth_width_input =
@@ -735,8 +749,8 @@ void *dlib_thread1_function(void *data) {
               eye_l_input += eye_input_correction;
               eye_r_input += eye_input_correction;
             }
-            // printf("%f\t%f\t%f\n", eye_l_input, eye_r_input,
-            // rotation_vector.x());
+            // printf("%f\t%f\t%f\n", eye_l_input, eye_r_input, rotation_vector.x());
+            // printf("%f\t%f\t%f\n", eye_l_input, eye_r_input, distance_mul_2);
 
             if (first) {
               eye_l = eye_l_input;
@@ -756,8 +770,7 @@ void *dlib_thread1_function(void *data) {
 
             double eye_sum = (eye_l - eye_l_offset + eye_r - eye_r_offset) * .5;
             if (webcam_settings->EyeSync) {
-              face_data->EYE_Close_L = clamp((eye_sum)*.4 - .05);
-              face_data->EYE_Close_R = clamp((eye_sum)*.4 - .05);
+              face_data->EYE_Close = clamp((eye_sum)*.4 - .05);
             } else {
               face_data->EYE_Close_L = clamp((eye_l - eye_l_offset) * .4 - .05);
               face_data->EYE_Close_R = clamp((eye_r - eye_r_offset) * .4 - .05);
@@ -824,6 +837,7 @@ void *dlib_thread1_function(void *data) {
               face_data->MTH_U *= 0.9;
               face_data->BRW_Fun *= 0.9;
               face_data->BRW_Angry *= 0.9;
+              face_data->EYE_Close *= 0.9;
               face_data->EYE_Close_L *= 0.9;
               face_data->EYE_Close_R *= 0.9;
 
@@ -859,7 +873,7 @@ void *dlib_thread1_function(void *data) {
     else
       break;
   }
-  cleanup();
+  capture_cleanup();
 
   return NULL;
 }
