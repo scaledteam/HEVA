@@ -240,7 +240,7 @@ void *dlib_thread1_function(void *data) {
 
     //cimg = dlib::array2d<unsigned char>(webcam_settings->Height, webcam_settings->Width);
     cimg.set_size(webcam_settings->Height, webcam_settings->Width);
-    init_device(webcam_settings->PreferredName);
+    init_device(webcam_settings->PreferredName, webcam_settings->Height, webcam_settings->Width);
     
     if (!capture_status())
       init_device("/dev/video0");

@@ -98,7 +98,7 @@ static void init_mmap(void) {
 
 uint8_t lut[256];
 
-static void init_device(char DeviceName[256]) {
+static void init_device(char DeviceName[256], int width=640, int height=480) {
   // Open the device file
   fd = open(DeviceName, O_RDWR);
   if (fd < 0) {
@@ -120,8 +120,8 @@ static void init_device(char DeviceName[256]) {
   struct v4l2_format fmt = {0};
   fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
-  fmt.fmt.pix.width = 640;
-  fmt.fmt.pix.height = 480;
+  fmt.fmt.pix.width = width;
+  fmt.fmt.pix.height = height;
   fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
   fmt.fmt.pix.field = V4L2_FIELD_NONE;
 
