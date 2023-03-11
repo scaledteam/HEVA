@@ -24,7 +24,6 @@
 #include <Urho3D/Input/Input.h>
 #endif
 
-
 // Hair
 #define HAIR_WITH_END_BONE
 #define HAIR_LENGTH 0.05f
@@ -214,6 +213,7 @@ void Heva::Setup()
 
 
 // urho3d
+#define ANIM_MULTIPLIER 2
 AnimatedModel* modelObject;
 AnimationState* animStill;
 AnimationState* animLeftRight;
@@ -688,22 +688,18 @@ void Heva::HandleUpdate(StringHash eventType, VariantMap& eventData)
 	
 	
 	// Body and Head
-	/*rotationSmooth1 += POINTS_SMOOTHING1 * (face_data->rotation1 - rotationSmooth1);
-	rotationSmooth2 += POINTS_SMOOTHING1 * (face_data->rotation2 - rotationSmooth2);
-	rotationSmooth3 += POINTS_SMOOTHING1 * (face_data->rotation3 - rotationSmooth3);
-	
-	translationSmooth1 += POINTS_SMOOTHING1 * (face_data->translation1 - translationSmooth1);
-	translationSmooth2 += POINTS_SMOOTHING1 * (face_data->translation2 - translationSmooth2);
-	translationSmooth3 += POINTS_SMOOTHING1 * (face_data->translation3 - translationSmooth3);*/
 	rotationSmooth += POINTS_SMOOTHING1 * (Vector3(face_data->rotation1, face_data->rotation2, face_data->rotation3) - rotationSmooth);
 	translationSmooth += POINTS_SMOOTHING1 * (Vector3(face_data->translation1, face_data->translation2, face_data->translation3) - translationSmooth);
 	
+	//Urho3D::Vector3 translation_vector = Vector3(face_data->translation1, face_data->translation2, face_data->translation3);
+	//translationSmooth += std::max(0.0, abs(1.0 - 2.0*translation_vector.Length())) * POINTS_SMOOTHING1 * (translation_vector - translationSmooth);
 	
-	double tempTime = translationSmooth.x_*4;
+	
+	double tempTime = translationSmooth.x_ * ANIM_MULTIPLIER;
 	animLeftRight->SetTime(.5+.5*tempTime);
-	tempTime = translationSmooth.z_*-4;
+	tempTime = translationSmooth.z_ * -ANIM_MULTIPLIER;
 	animForwardBackward->SetTime(.5+.5*tempTime);
-	tempTime = translationSmooth.y_*-4;
+	tempTime = translationSmooth.y_ * -ANIM_MULTIPLIER;
 	animUpDown->SetTime(.5+.5*tempTime);
 	
 	Urho3D::Quaternion eyesAngle = Quaternion(face_data->rotation1*.5, face_data->rotation3*.4, 0);

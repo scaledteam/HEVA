@@ -96,6 +96,8 @@ static void init_mmap(void) {
   }
 }
 
+uint8_t lut[256];
+
 static void init_device(char DeviceName[256]) {
   // Open the device file
   fd = open(DeviceName, O_RDWR);
@@ -140,6 +142,19 @@ static void init_device(char DeviceName[256]) {
   init_mmap();
   
   v4l2_works = 1;
+  
+  // Linear LUT
+  /*for(int i=0; i<256; i++) {
+    if (i < 128)
+      lut[i] = i / 2 * 3;
+    else
+      lut[i] = (i - 128) / 2 + 192;
+  }*/
+  
+  // Gamma LUT
+  for(int i=0; i<256; i++) {
+     lut[i] = pow(i/255.0, 0.3)*255.0;
+  }
 }
 
 static void start_capturing(void) {
@@ -197,6 +212,19 @@ static void process_image(void *data, const void *pBuffer) {
   // image needs to be inverted lol
   for(int i=0; i<w*h; i++) {
     cimg[i / h][i % h] = buffer[i*2];
+  }
+  
+  // frequency filter
+  /*uint8_t average = 127;
+  for(int i=0; i<w*h; i++) {
+    uint8_t value = buffer[i*2];
+    average += (value - average) / 32;
+    cimg[i / h][i % h] = std::max(0, std::min(255, (value - average)*2 + 127));
+  }*/
+  
+  // LUT
+  for(int i=0; i<w*h; i++) {
+    cimg[i / h][i % h] = lut[buffer[i*2]];
   }
   
   //fputc('.', stdout);
