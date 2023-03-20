@@ -88,6 +88,7 @@ Heva::Heva(Context* context) :
 std::string sceneName = "Default";
 bool webcamSync = true;
 int graphicsFps = 0;
+float model_focalLength = 50.0;
 
 void Heva::Setup()
 {
@@ -111,6 +112,7 @@ void Heva::Setup()
 		webcamSync = reader.GetBoolean("webcam", "sync", true);
 		
 		sceneName = reader.Get("model", "scene", "Default");
+		model_focalLength = reader.GetReal("model", "focal_length", 50.0);
 		
 		graphicsSimple = reader.GetBoolean("graphics", "simple", false);
 		graphicsMultisample = reader.GetInteger("graphics", "multisample", 1);
@@ -412,8 +414,10 @@ void Heva::Start()
 	cameraNode_ = scene_->CreateChild("Camera");
 	Urho3D::Camera* camera_ = cameraNode_->CreateComponent<Camera>();
 	camera_->SetNearClip(.1f);
-	camera_->SetFarClip(10.f);
-	camera_->SetFov(40.f/16.f*9.f);
+	camera_->SetFarClip(20.f);
+	//camera_->SetFov(40.f/16.f*9.f);
+	camera_->SetFov(2.0 * 180.0 / 3.1415 * atan(36.0/2.0 / model_focalLength) / 14.5*9.0);
+	printf("%f\n", 2.0 * 180.0 / 3.1415 * atan(36.0/2.0 / model_focalLength));
 
 	// Set an initial position for the camera scene node above the plane
 	//cameraNode_->SetPosition(Vector3(0.0f, 0.0f, -4.0f));

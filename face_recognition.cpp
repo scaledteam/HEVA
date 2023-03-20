@@ -152,18 +152,18 @@ void *dlib_thread1_function(void *data) {
   pthread_mutex_t dlib_thread2_mutex1 = PTHREAD_MUTEX_INITIALIZER;
   dlib_data->thread1_waiting = false;
 
-  dlib::vector rotation_vector = dlib::vector<double>();
-  dlib::vector translation_vector = dlib::vector<double>();
-  dlib::vector rotation_vector_offset = dlib::vector<double>();
-  dlib::vector translation_vector_offset = dlib::vector<double>();
+  dlib::vector rotation_vector = dlib::vector<double,3>();
+  dlib::vector translation_vector = dlib::vector<double,3>();
+  dlib::vector rotation_vector_offset = dlib::vector<double,3>();
+  dlib::vector translation_vector_offset = dlib::vector<double,3>();
 
   int facesLostCounter = 0;
-  dlib::vector rotation_vector1 = dlib::vector<double>();
-  dlib::vector rotation_vector2 = dlib::vector<double>();
-  dlib::vector rotation_vector3 = dlib::vector<double>();
-  dlib::vector translation_vector1 = dlib::vector<double>();
-  dlib::vector translation_vector2 = dlib::vector<double>();
-  dlib::vector translation_vector3 = dlib::vector<double>();
+  dlib::vector rotation_vector1 = dlib::vector<double,3>();
+  dlib::vector rotation_vector2 = dlib::vector<double,3>();
+  dlib::vector rotation_vector3 = dlib::vector<double,3>();
+  dlib::vector translation_vector1 = dlib::vector<double,3>();
+  dlib::vector translation_vector2 = dlib::vector<double,3>();
+  dlib::vector translation_vector3 = dlib::vector<double,3>();
 
   double mth_a = 0;
   double mth_a_offset = 0;
@@ -239,11 +239,15 @@ void *dlib_thread1_function(void *data) {
     */
 
     //cimg = dlib::array2d<unsigned char>(webcam_settings->Height, webcam_settings->Width);
-    cimg.set_size(webcam_settings->Height, webcam_settings->Width);
     init_device(webcam_settings->PreferredName, webcam_settings->Height, webcam_settings->Width);
     
-    if (!capture_status())
-      init_device("/dev/video0");
+    if (capture_status()) {
+      cimg.set_size(webcam_settings->Height, webcam_settings->Width);
+    }
+    else {
+      init_device("/dev/video0", 640, 480);
+      cimg.set_size(640, 480);
+    }
 
     start_capturing();
 
@@ -533,13 +537,33 @@ void *dlib_thread1_function(void *data) {
             face_data->rotation3 = -(rotation_vector.y() -
                                      rotation_vector_offset.y()) *
                                    180 / 3.1415;
-
-            face_data->translation1 = translation_vector.x() -
+            
+            dlib::vector translation_vector_send = translation_vector - translation_vector_offset;
+            
+            /*dlib::matrix<double> rotation_matrix1(3,3);
+            rotation_matrix1 =  1.0, 0.0, 0.0,
+                                0.0, 1.0, 0.0,
+                                0.0, 0.0, 1.0;
+            translation_vector_send = rotation_matrix1 * translation_vector_send;*/
+            
+            dlib::point_transform_affine3d transform_class;
+            transform_class = dlib::rotate_around_x(-rotation_vector_offset.x());
+            translation_vector_send = transform_class(translation_vector_send);
+            transform_class = dlib::rotate_around_y(-rotation_vector_offset.y());
+            translation_vector_send = transform_class(translation_vector_send);
+           transform_class = dlib::rotate_around_z(-rotation_vector_offset.z());
+            translation_vector_send = transform_class(translation_vector_send);
+            
+            face_data->translation1 = translation_vector_send.x();
+            face_data->translation2 = translation_vector_send.y();
+            face_data->translation3 = translation_vector_send.z();
+            
+            /*face_data->translation1 = translation_vector.x() -
                                       translation_vector_offset.x();
             face_data->translation2 = translation_vector.y() -
                                       translation_vector_offset.y();
             face_data->translation3 = translation_vector.z() -
-                                      translation_vector_offset.z();
+                                      translation_vector_offset.z();*/
 
             // Face
             //double distance_mul_2 = translation_vector.z() * (-240.0 / webcam_settings->Height);
