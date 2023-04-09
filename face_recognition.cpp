@@ -204,8 +204,6 @@ void *dlib_thread1_function(void *data) {
   dlib::point face_jaw;       // 8
   dlib::point face_cheek_l;   // 0
   dlib::point face_cheek_r;   // 16
-  dlib::point face_cheek_l_m; // 4
-  dlib::point face_cheek_r_m; // 12
 
   // momentum_filter
   // Filter arguments:
@@ -439,8 +437,6 @@ void *dlib_thread1_function(void *data) {
               face_jaw = shape.part(8);
               face_cheek_l = shape.part(0);
               face_cheek_r = shape.part(16);
-              face_cheek_l_m = shape.part(4);
-              face_cheek_r_m = shape.part(12);
             }
             else {
               dlib::point speed = shape.part(30) - face_nose;
@@ -455,12 +451,6 @@ void *dlib_thread1_function(void *data) {
               speed = shape.part(16) - face_cheek_r;
               face_cheek_r(0) += POINTS_SMOOTHING * speed.x() * std::min(1.0, dlib::length(speed) / POINTS_SMOOTHING_DISTANCE);
               face_cheek_r(1) += POINTS_SMOOTHING * speed.y() * std::min(1.0, dlib::length(speed) / POINTS_SMOOTHING_DISTANCE);
-              speed = shape.part(4) - face_cheek_l_m;
-              face_cheek_l_m(0) += POINTS_SMOOTHING * speed.x() * std::min(1.0, dlib::length(speed) / POINTS_SMOOTHING_DISTANCE);
-              face_cheek_l_m(1) += POINTS_SMOOTHING * speed.y() * std::min(1.0, dlib::length(speed) / POINTS_SMOOTHING_DISTANCE);
-              speed = shape.part(12) - face_cheek_r_m;
-              face_cheek_r_m(0) += POINTS_SMOOTHING * speed.x() * std::min(1.0, dlib::length(speed) / POINTS_SMOOTHING_DISTANCE);
-              face_cheek_r_m(1) += POINTS_SMOOTHING * speed.y() * std::min(1.0, dlib::length(speed) / POINTS_SMOOTHING_DISTANCE);
             }
             
             // Find the pose of each face.
@@ -486,15 +476,8 @@ void *dlib_thread1_function(void *data) {
                 webcam_settings->Height;
 
             // up-down
-            dlib::point cheek1_center = 0.5 * (face_cheek_l + face_jaw);
-            dlib::point cheek1_actual = face_cheek_l_m;
-            dlib::point cheek2_center = 0.5 * (face_jaw + face_cheek_r);
-            dlib::point cheek2_actual = face_cheek_r_m;
-            rotation_vector(0) =
-                -10 *
-                (dlib::length(cheek1_center - cheek1_actual) +
-                 dlib::length(cheek2_center - cheek2_actual)) /
-                webcam_settings->Height + 1.45;
+            //rotation_vector(0) = (dlib::length(face_tilt) / (dlib::length(face_cheek_l - face_jaw) + dlib::length(face_cheek_r - face_jaw)));
+            rotation_vector(0) = -7 * ((dlib::length(face_tilt) - 0.5 * (dlib::length(face_cheek_l - face_jaw) + dlib::length(face_cheek_r - face_jaw))) / webcam_settings->Height - 0.05);
 
             //printf("%f\t%f\t%f\n", rotation_vector.x(), rotation_vector.y(), rotation_vector.z());
           }
@@ -551,7 +534,7 @@ void *dlib_thread1_function(void *data) {
             translation_vector_send = transform_class(translation_vector_send);
             transform_class = dlib::rotate_around_y(-rotation_vector_offset.y());
             translation_vector_send = transform_class(translation_vector_send);
-           transform_class = dlib::rotate_around_z(-rotation_vector_offset.z());
+            transform_class = dlib::rotate_around_z(-rotation_vector_offset.z());
             translation_vector_send = transform_class(translation_vector_send);
             
             face_data->translation1 = translation_vector_send.x();

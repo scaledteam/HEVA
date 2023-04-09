@@ -152,8 +152,13 @@ static void init_device(char DeviceName[256], int width=640, int height=480) {
   }*/
   
   // Gamma LUT
-  for(int i=0; i<256; i++) {
+  /*for(int i=0; i<256; i++) {
      lut[i] = pow(i/255.0, 0.3)*255.0;
+  }*/
+  
+  // Gamma contrast LUT
+  for(int i=0; i<256; i++) {
+     lut[i] = pow(std::min(1.0, std::max(0, i-32)/192.0), 0.3)*255.0;
   }
 }
 

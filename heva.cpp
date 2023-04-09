@@ -235,8 +235,6 @@ Urho3D::Bone* boneEyeRBone;
 Urho3D::Node* boneHips;
 float boneLegLength;
 float boneLegDistance;
-Urho3D::Quaternion boneHipsOffset;
-Urho3D::Vector3 boneHipsPosition;
 Urho3D::Time* time_;
 // Face string hash
 StringHash hash_MTH_A;
@@ -706,8 +704,8 @@ void Heva::HandleUpdate(StringHash eventType, VariantMap& eventData)
 	tempTime = translationSmooth.y_ * -ANIM_MULTIPLIER;
 	animUpDown->SetTime(.5+.5*tempTime);
 	
-	Urho3D::Quaternion eyesAngle = Quaternion(face_data->rotation1*.5, face_data->rotation3*.4, 0);
-	Urho3D::Quaternion headAngle = Quaternion(rotationSmooth.x_*.5, rotationSmooth.z_*.4, -rotationSmooth.y_*.5);
+	Urho3D::Quaternion eyesAngle = Quaternion(face_data->rotation1*.4, face_data->rotation3*.4, 0);
+	Urho3D::Quaternion headAngle = Quaternion(rotationSmooth.x_*.3, rotationSmooth.z_*.4, -rotationSmooth.y_*.5);
 	
 	boneNeck->SetRotation(boneNeckOffset * headAngle);
 	boneHead->SetRotation(boneHeadOffset * headAngle);

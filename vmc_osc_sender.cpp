@@ -69,7 +69,8 @@ void* vmc_osc_sender_thread_function(void* arg)
 		    "RightEye", 0.0, 0.0, 0.0, data->eyesRot.x_, data->eyesRot.y_, data->eyesRot.z_, data->eyesRot.w_
 		);
 		
-		tosc_writeNextMessage(&bundle, "/VMC/Ext/Apply", "");
+		//tosc_writeNextMessage(&bundle, "/VMC/Ext/Apply", "");
+		tosc_writeNextMessage(&bundle, "/VMC/Ext/Blend/Apply", "");
 		
 		sendto(socket_fd, buffer, tosc_getBundleLength(&bundle), 0, (struct sockaddr*) &addr, sizeof(addr));
 		
