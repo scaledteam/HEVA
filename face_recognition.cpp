@@ -237,14 +237,17 @@ void *dlib_thread1_function(void *data) {
     */
 
     //cimg = dlib::array2d<unsigned char>(webcam_settings->Height, webcam_settings->Width);
-    init_device(webcam_settings->PreferredName, webcam_settings->Height, webcam_settings->Width);
     
-    if (capture_status()) {
-      cimg.set_size(webcam_settings->Height, webcam_settings->Width);
+    if (webcam_settings->PreferredName != "") {
+      init_device(webcam_settings->PreferredName, webcam_settings->Width, webcam_settings->Height);
+      if (capture_status()) {
+        cimg.set_size(webcam_settings->Height, webcam_settings->Width);
+      }
     }
-    else {
+    
+    if (!capture_status()) {
       init_device("/dev/video0", 640, 480);
-      cimg.set_size(640, 480);
+      cimg.set_size(480, 640);
     }
 
     start_capturing();
