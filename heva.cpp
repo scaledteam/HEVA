@@ -104,7 +104,7 @@ void Heva::Setup()
 	auto* fileSystem = GetSubsystem<FileSystem>();
 	INIReader reader((fileSystem->GetProgramDir() + "heva.ini").GetBuffer());
 	if (reader.ParseError() < 0) {
-		printf("Can't load 'test.ini'\n");
+		printf("Can't load 'heva.ini'\n");
 	}
 	else {
 		printf("Ini loaded.\n");

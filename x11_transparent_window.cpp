@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <limits.h>
 
 #include <GL/gl.h>
 #include <GL/glx.h>
@@ -349,10 +350,20 @@ int main(int argc, char *argv[])
 	width = 550;
 	height = 800;
 	bool graphicsVsync = true;
+	bool graphicsFullscreen = true;
+	bool graphicsBorderless = true;
 	
-	/*INIReader reader(HEVA_CONFIG_PATH);
+        char cwd[PATH_MAX];
+        char *res = realpath(argv[0], cwd);
+        if (!res) {
+          perror("realpath");
+          exit(EXIT_FAILURE);
+        }
+        sprintf(cwd, "%s.ini", cwd);
+        
+	INIReader reader(cwd);
 	if (reader.ParseError() < 0) {
-		printf("Can't load 'test.ini'\n");
+		printf("Can't load 'heva.ini'\n");
 	}
 	else {
 		printf("Ini loaded.\n");
@@ -360,7 +371,9 @@ int main(int argc, char *argv[])
 		width = reader.GetInteger("graphics", "width", 550);
 		height = reader.GetInteger("graphics", "height", 800);
 		graphicsVsync = reader.GetBoolean("graphics", "vsync", true);
-	}*/
+		graphicsFullscreen = reader.GetBoolean("graphics", "fullscreen", false);
+		graphicsBorderless = reader.GetBoolean("graphics", "borderless", false);
+	}
 	
 	for (int i=0; i<(sizeof(VisData)/sizeof(int)); i+=2) {
 		if (VisData[i] == GLX_DOUBLEBUFFER) {
@@ -369,7 +382,6 @@ int main(int argc, char *argv[])
 	}
 	
 	createTheWindow();
-	createTheRenderContext();
 	
 	XClassHint* class_hints = XAllocClassHint();
 	class_hints->res_name = (char*)malloc(sizeof(char)*5);
@@ -378,6 +390,29 @@ int main(int argc, char *argv[])
 	strcpy(class_hints->res_class, "heva");
 	XSetClassHint(Xdisplay, window_handle, class_hints);
 	
+        if (graphicsFullscreen) {
+          Atom wm_state   = XInternAtom (Xdisplay, "_NET_WM_STATE", true );
+          Atom wm_fullscreen = XInternAtom (Xdisplay, "_NET_WM_STATE_FULLSCREEN", true );
+          XChangeProperty(Xdisplay, window_handle, wm_state, XA_ATOM, 32, PropModeReplace, (unsigned char *)&wm_fullscreen, 1);
+        }
+	
+	// borderless
+	if (graphicsBorderless) {
+	  long hints[5] = {2, 0, 0, 0, 0};
+	  Atom motif_hints = XInternAtom(Xdisplay, "_MOTIF_WM_HINTS", False);
+
+	  XChangeProperty(Xdisplay, window_handle, motif_hints, motif_hints, 32, PropModeReplace, (unsigned char *)&hints, 5);
+	}
+	
+	// Fix size
+	XSizeHints* sh = XAllocSizeHints();
+	sh->flags = PMinSize | PMaxSize;
+	sh->min_width = sh->max_width = width;
+	sh->min_height = sh->max_height = height;
+	XSetWMSizeHints(Xdisplay, window_handle, sh, XA_WM_NORMAL_HINTS);
+	XFree(sh);
+	
+	createTheRenderContext();
 
 	Urho3D::Context* context = (new Urho3D::Context());
 	myApp = new Heva(context, (void*)window_handle);
