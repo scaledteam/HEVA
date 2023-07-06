@@ -233,6 +233,7 @@ Urho3D::Quaternion boneEyeROffset;
 Urho3D::Bone* boneEyeLBone;
 Urho3D::Bone* boneEyeRBone;
 Urho3D::Node* boneHips;
+Urho3D::Node* boneRoot;
 float boneLegLength;
 float boneLegDistance;
 Urho3D::Time* time_;
@@ -415,7 +416,7 @@ void Heva::Start()
 	camera_->SetFarClip(20.f);
 	//camera_->SetFov(40.f/16.f*9.f);
 	camera_->SetFov(2.0 * 180.0 / 3.1415 * atan(36.0/2.0 / model_focalLength) / 14.5*9.0);
-	printf("%f\n", 2.0 * 180.0 / 3.1415 * atan(36.0/2.0 / model_focalLength));
+	//printf("%f\n", 2.0 * 180.0 / 3.1415 * atan(36.0/2.0 / model_focalLength));
 
 	// Set an initial position for the camera scene node above the plane
 	//cameraNode_->SetPosition(Vector3(0.0f, 0.0f, -4.0f));
@@ -461,6 +462,7 @@ void Heva::Start()
 	modelObject->ApplyAnimation();
 	
 	boneHips = modelNode->GetChild("hips", true);
+	boneRoot = modelNode->GetChild("root", true);
 	
 	// FXAA
 	//SharedPtr<RenderPath> effectRenderPath = viewport->GetRenderPath()->Clone();
@@ -649,16 +651,10 @@ void Heva::HandleKeyUp(StringHash eventType, VariantMap& eventData)
 	#endif
 }
 
-#define POINTS_SMOOTHING1 .2
-#define POINTS_SMOOTHING .25
+#define POINTS_SMOOTHING1 .5
 #define POINTS_SMOOTHING_DISTANCE_ROT 6
 #define POINTS_SMOOTHING_DISTANCE_LOC .1
-/*double rotationSmooth1 = 0;
-double rotationSmooth2 = 0;
-double rotationSmooth3 = 0;
-double translationSmooth1 = 0;
-double translationSmooth2 = 0;
-double translationSmooth3 = 0;*/
+#define EMOTIONS_SMOOTHING .75
 Urho3D::Vector3 rotationSmooth;
 Urho3D::Vector3 translationSmooth;
 
@@ -693,6 +689,16 @@ void Heva::HandleUpdate(StringHash eventType, VariantMap& eventData)
 	rotationSmooth += POINTS_SMOOTHING1 * (Vector3(face_data->rotation1, face_data->rotation2, face_data->rotation3) - rotationSmooth);
 	translationSmooth += POINTS_SMOOTHING1 * (Vector3(face_data->translation1, face_data->translation2, face_data->translation3) - translationSmooth);
 	
+	// fun rig
+	/*rotationSmooth.x_ += POINTS_SMOOTHING1 * (face_data->rotation1 - rotationSmooth.x_);
+	rotationSmooth.y_ += POINTS_SMOOTHING1 * (face_data->rotation2 - rotationSmooth.y_);
+	rotationSmooth.z_ += 0;
+	translationSmooth += POINTS_SMOOTHING1 * (Vector3(face_data->translation1, face_data->translation2, face_data->translation3) - translationSmooth);*/
+	
+	// No smoothing
+	//rotationSmooth = Vector3(face_data->rotation1, face_data->rotation2, face_data->rotation3);
+	//translationSmooth = Vector3(face_data->translation1, face_data->translation2, face_data->translation3);
+	
 	//Urho3D::Vector3 translation_vector = Vector3(face_data->translation1, face_data->translation2, face_data->translation3);
 	//translationSmooth += std::max(0.0, abs(1.0 - 2.0*translation_vector.Length())) * POINTS_SMOOTHING1 * (translation_vector - translationSmooth);
 	
@@ -705,7 +711,8 @@ void Heva::HandleUpdate(StringHash eventType, VariantMap& eventData)
 	animUpDown->SetTime(.5+.5*tempTime);
 	
 	Urho3D::Quaternion eyesAngle = Quaternion(face_data->rotation1*.4, face_data->rotation3*.4, 0);
-	Urho3D::Quaternion headAngle = Quaternion(rotationSmooth.x_*.3, rotationSmooth.z_*.4, -rotationSmooth.y_*.5);
+	//Urho3D::Quaternion headAngle = Quaternion(rotationSmooth.x_*.3, rotationSmooth.z_*.4, -rotationSmooth.y_*.5);
+	Urho3D::Quaternion headAngle = Quaternion(rotationSmooth.x_*.3, rotationSmooth.z_*.2, -rotationSmooth.y_*.5);
 	
 	boneNeck->SetRotation(boneNeckOffset * headAngle);
 	boneHead->SetRotation(boneHeadOffset * headAngle);
@@ -720,16 +727,47 @@ void Heva::HandleUpdate(StringHash eventType, VariantMap& eventData)
 	boneEyeRBone->animated_ = false;
 	
 	// Face
-	modelObject->SetMorphWeight(hash_MTH_A, face_data->MTH_A);
-	modelObject->SetMorphWeight(hash_MTH_U, face_data->MTH_U);
-	modelObject->SetMorphWeight(hash_MTH_Fun, face_data->MTH_Fun);
-	modelObject->SetMorphWeight(hash_MTH_E, face_data->MTH_E);
-	modelObject->SetMorphWeight(hash_BRW_Fun, face_data->BRW_Fun);
-	modelObject->SetMorphWeight(hash_BRW_Angry, face_data->BRW_Angry);
-	modelObject->SetMorphWeight(hash_EYE_Angry, face_data->BRW_Angry);
-	modelObject->SetMorphWeight(hash_EYE_Close, face_data->EYE_Close);
-	modelObject->SetMorphWeight(hash_EYE_Close_L, face_data->EYE_Close_L);
-	modelObject->SetMorphWeight(hash_EYE_Close_R, face_data->EYE_Close_R);
+	if (graphicsFps <= 30) {
+	  modelObject->SetMorphWeight(hash_MTH_A, face_data->MTH_A);
+	  modelObject->SetMorphWeight(hash_MTH_U, face_data->MTH_U);
+	  modelObject->SetMorphWeight(hash_MTH_Fun, face_data->MTH_Fun);
+	  modelObject->SetMorphWeight(hash_MTH_E, face_data->MTH_E);
+	  modelObject->SetMorphWeight(hash_BRW_Fun, face_data->BRW_Fun);
+	  modelObject->SetMorphWeight(hash_BRW_Angry, face_data->BRW_Angry);
+	  modelObject->SetMorphWeight(hash_EYE_Angry, face_data->BRW_Angry);
+	  modelObject->SetMorphWeight(hash_EYE_Close, face_data->EYE_Close);
+	  modelObject->SetMorphWeight(hash_EYE_Close_L, face_data->EYE_Close_L);
+	  modelObject->SetMorphWeight(hash_EYE_Close_R, face_data->EYE_Close_R);
+	}
+	else {
+	  double a = modelObject->GetMorphWeight(hash_MTH_A);
+	  modelObject->SetMorphWeight(hash_MTH_A, a + EMOTIONS_SMOOTHING * (face_data->MTH_A - a));
+	  a = modelObject->GetMorphWeight(hash_MTH_U);
+	  modelObject->SetMorphWeight(hash_MTH_U, a + EMOTIONS_SMOOTHING * (face_data->MTH_U - a));
+	  a = modelObject->GetMorphWeight(hash_MTH_Fun);
+	  modelObject->SetMorphWeight(hash_MTH_Fun, a + EMOTIONS_SMOOTHING * (face_data->MTH_Fun - a));
+	  a = modelObject->GetMorphWeight(hash_MTH_E);
+	  modelObject->SetMorphWeight(hash_MTH_E, a + EMOTIONS_SMOOTHING * (face_data->MTH_E - a));
+	  a = modelObject->GetMorphWeight(hash_BRW_Fun);
+	  modelObject->SetMorphWeight(hash_BRW_Fun, a + EMOTIONS_SMOOTHING * (face_data->BRW_Fun - a));
+	  a = modelObject->GetMorphWeight(hash_BRW_Angry);
+	  modelObject->SetMorphWeight(hash_BRW_Angry, a + EMOTIONS_SMOOTHING * (face_data->BRW_Angry - a));
+	  a = modelObject->GetMorphWeight(hash_EYE_Angry);
+	  modelObject->SetMorphWeight(hash_EYE_Angry, a + EMOTIONS_SMOOTHING * (face_data->BRW_Angry - a));
+	  a = modelObject->GetMorphWeight(hash_EYE_Close);
+	  modelObject->SetMorphWeight(hash_EYE_Close, a + EMOTIONS_SMOOTHING * (face_data->EYE_Close - a));
+	  a = modelObject->GetMorphWeight(hash_EYE_Close_L);
+	  modelObject->SetMorphWeight(hash_EYE_Close_L, a + EMOTIONS_SMOOTHING * (face_data->EYE_Close_L - a));
+	  a = modelObject->GetMorphWeight(hash_EYE_Close_R);
+	  modelObject->SetMorphWeight(hash_EYE_Close_R, a + EMOTIONS_SMOOTHING * (face_data->EYE_Close_R - a));
+	}
+	
+	if (face_data->on_screen) {
+	  boneRoot->SetScale(1);
+	}
+	else {
+	  boneRoot->SetScale(0);
+	}
 	#endif
 	
 	#ifdef VMC_OSC_SENDER

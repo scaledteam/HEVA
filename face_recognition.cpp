@@ -6,8 +6,8 @@
 //#define TRACKING_STRAIT
 //#define TRACKING_THREADING_LOG
 
-#define POINTS_SMOOTHING .25
-#define POINTS_SMOOTHING_DISTANCE 12
+#define POINTS_SMOOTHING .125
+#define POINTS_SMOOTHING_DISTANCE 24
 
 #define ADAPT_SPEED_1 .0025
 #define ADAPT_SPEED_2 .005
@@ -180,6 +180,7 @@ void *dlib_thread1_function(void *data) {
   int firstCounter = 0;
 
   double adaptStrength = 1;
+  face_data->on_screen = true;
 
 
   /*double faceForms[] = {
@@ -246,7 +247,9 @@ void *dlib_thread1_function(void *data) {
     }
     
     if (!capture_status()) {
-      init_device("/dev/video0", 640, 480);
+      char default_video_source[] = "/dev/video0";
+      
+      init_device(default_video_source, 640, 480);
       cimg.set_size(480, 640);
     }
 
@@ -255,63 +258,6 @@ void *dlib_thread1_function(void *data) {
     // Necessary settings
     //if (cap.isOpened()) {
     if (1) {
-        /*
-        if (webcam_settings->Setup) {
-          if (webcam_settings->YUYV) {
-            cap.set(cv::CAP_PROP_FOURCC,
-                    cv::VideoWriter::fourcc('Y', 'U', 'Y', 'V'));
-            cap.set(cv::CAP_PROP_CONVERT_RGB, false);
-          } else if (webcam_settings->Format != "") {
-            printf("format: %c %c %c %c\n", webcam_settings->Format[0],
-                   webcam_settings->Format[1], webcam_settings->Format[2],
-                   webcam_settings->Format[3]);
-            cap.set(cv::CAP_PROP_FOURCC,
-                    cv::VideoWriter::fourcc(
-                        webcam_settings->Format[0], webcam_settings->Format[1],
-                        webcam_settings->Format[2], webcam_settings->Format[3]));
-          }
-
-          if (webcam_settings->Width > 0 && webcam_settings->Height > 0) {
-            cap.set(cv::CAP_PROP_FRAME_WIDTH, webcam_settings->Width);
-            cap.set(cv::CAP_PROP_FRAME_HEIGHT, webcam_settings->Height);
-          }
-
-          if (webcam_settings->Fps > 0) {
-            int fps = cap.get(cv::CAP_PROP_FPS);
-
-            cap.set(cv::CAP_PROP_FPS, webcam_settings->Fps);
-
-            if (!cap.isOpened())
-              cap.set(cv::CAP_PROP_FPS, 30);
-
-            if (!cap.isOpened())
-              cap.set(cv::CAP_PROP_FPS, fps);
-          } else if (webcam_settings->LimitTo24or25) {
-            int fps = cap.get(cv::CAP_PROP_FPS);
-
-            cap.set(cv::CAP_PROP_FPS, 25);
-
-            if (!cap.isOpened())
-              cap.set(cv::CAP_PROP_FPS, 24);
-
-            if (!cap.isOpened())
-              cap.set(cv::CAP_PROP_FPS, 30);
-
-            if (!cap.isOpened())
-              cap.set(cv::CAP_PROP_FPS, fps);
-          }
-
-          if (webcam_settings->Buffer != -1) {
-            cap.set(cv::CAP_PROP_BUFFERSIZE, webcam_settings->Buffer);
-          }
-        }
-        */
-
-      /*if (webcam_settings->Width <= 0 || webcam_settings->Height <= 0) {
-        webcam_settings->Width = cap.get(cv::CAP_PROP_FRAME_WIDTH);
-        webcam_settings->Height = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
-      }*/
-
       dlib_data->dlib_thread_ready = 1;
 
       // Cycle
@@ -323,8 +269,6 @@ void *dlib_thread1_function(void *data) {
           dlib_data->dlib_thread_signal = DLIB_THREAD_SIGNAL_NONE;
         }
 
-
-        
         //cv::Mat temp;
         //if (cap.grab()) {
         if (1) {
@@ -332,18 +276,6 @@ void *dlib_thread1_function(void *data) {
           // camera)
           if (webcam_settings->Sync && webcam_settings->SyncType2)
             pthread_cond_signal(&dlib_data->dlib_thread_cond);
-
-          //cap.retrieve(temp);
-
-          // translate to grayscale
-          /*cv::Mat mat;
-          cv::cvtColor(temp, mat,
-                       webcam_settings->YUYV ? cv::COLORy()UV2GRAYy()UY2
-                                             : cv::COLOR_BGR2GRAY);
-
-          if (webcam_settings->Gamma != 1.0) {
-            LUT(mat, gammaCorrectionLUT, mat);
-          }*/
 
           pthread_mutex_lock(&dlib_thread2_mutex_cimg);
           #ifdef TRACKING_THREADING_LOG
@@ -513,6 +445,7 @@ void *dlib_thread1_function(void *data) {
                   adaptStrength * ADAPT_SPEED_1;
             }
             facesLostCounter = 0;
+            face_data->on_screen = true;
 
             face_data->rotation1 = -(rotation_vector.x() -
                                      rotation_vector_offset.x()) *
@@ -769,9 +702,9 @@ void *dlib_thread1_function(void *data) {
               eye_r_offset = eye_r_input;
             } else {
               eye_l += .3 * (eye_l_input - eye_l) *
-                       std::min(1.0, abs(eye_l_input - eye_l) * .15);
+                       std::min(1.0, abs(eye_l_input - eye_l) * .12);
               eye_r += .3 * (eye_r_input - eye_r) *
-                       std::min(1.0, abs(eye_r_input - eye_r) * .15);
+                       std::min(1.0, abs(eye_r_input - eye_r) * .12);
               eye_l_offset +=
                   adaptStrength * ADAPT_SPEED_2 * (eye_l - eye_l_offset);
               eye_r_offset +=
@@ -851,8 +784,8 @@ void *dlib_thread1_function(void *data) {
               face_data->EYE_Close_L *= 0.9;
               face_data->EYE_Close_R *= 0.9;
 
-              // return when inactive 10 seconds
-              if (facesLostCounter > 250) {
+              // return when inactive 3 seconds
+              if (facesLostCounter > 90) {
                 face_data->rotation1 *= 0.99;
                 face_data->rotation2 *= 0.99;
                 face_data->rotation3 *= 0.99;
@@ -860,6 +793,8 @@ void *dlib_thread1_function(void *data) {
                 face_data->translation1 *= 0.99;
                 face_data->translation2 *= 0.99;
                 face_data->translation3 *= 0.99;
+                
+                face_data->on_screen = false;
               }
             }
           }

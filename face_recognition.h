@@ -34,6 +34,7 @@ struct face_recognition_data {
 	double translation1;
 	double translation2;
 	double translation3;
+	bool on_screen;
 };
 
 struct webcam_settings_t {
