@@ -215,9 +215,9 @@ static void process_image(void *data, const void *pBuffer) {
   int h = cimg.nc();
   
   // image needs to be inverted lol
-  for(int i=0; i<w*h; i++) {
+  /*for(int i=0; i<w*h; i++) {
     cimg[i / h][i % h] = buffer[i*2];
-  }
+  }*/
   
   // frequency filter
   /*uint8_t average = 127;
