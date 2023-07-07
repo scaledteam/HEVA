@@ -109,8 +109,6 @@ void Heva::Setup()
 	else {
 		printf("Ini loaded.\n");
 		
-		webcamSync = reader.GetBoolean("webcam", "sync", true);
-		
 		sceneName = reader.Get("model", "scene", "Default");
 		model_focalLength = reader.GetReal("model", "focal_length", 50.0);
 		
@@ -135,8 +133,12 @@ void Heva::Setup()
 		strcpy(webcam_settings->PreferredName, reader.Get("webcam", "preferred_name", "").c_str());
 		strcpy(webcam_settings->Format, reader.Get("webcam", "format", "").c_str());
 		
-		webcam_settings->Sync = reader.GetBoolean("webcam", "sync", true);
+		webcam_settings->Sync = reader.GetBoolean("webcam", "sync", false);
 		webcam_settings->SyncType2 = reader.GetBoolean("webcam", "sync_type2", true);
+		
+		webcamSync = webcam_settings->Sync || webcam_settings->SyncType2;
+		if (webcamSync)
+		  graphicsFps = 0;
 		webcam_settings->MouthIndirect = reader.GetBoolean("webcam", "mouth_indirect", false);
 		webcam_settings->Gamma = reader.GetReal("webcam", "gamma", 1.0);
 		webcam_settings->Buffer = reader.GetInteger("webcam", "buffer", -1);

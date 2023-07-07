@@ -47,7 +47,7 @@ struct webcam_settings_t {
 	char PreferredName[256] = "";
 	int PreferredId = -1;
 	char Format[4] = "";
-	bool Sync = true;
+	bool Sync = false;
 	bool SyncType2 = true;
 	bool MouthIndirect = false;
 	float Gamma = 1.0;

@@ -28,6 +28,8 @@
 
 #include <dlib/filtering.h>
 
+pthread_mutex_t dlib_thread2_mutex_cimg = PTHREAD_MUTEX_INITIALIZER;
+
 dlib::array2d<unsigned char> cimg;
 #include "capture-v4l2.c"
 
@@ -37,8 +39,6 @@ double clamp(double value) { return std::max(0.0, std::min(1.0, value)); }
 dlib::point dlib_rect_center(dlib::rectangle rect) {
   return (rect.tl_corner() + rect.br_corner()) * .5;
 }
-
-pthread_mutex_t dlib_thread2_mutex_cimg = PTHREAD_MUTEX_INITIALIZER;
 
 void *dlib_thread2_function(void *data) {
   dlib_thread_data *dlib_data = (dlib_thread_data *)data;
@@ -64,6 +64,7 @@ void *dlib_thread2_function(void *data) {
       #ifdef TRACKING_THREADING_LOG
       printf("  !! 2 thread is ready, but 1 still waiting\n");
       #endif
+      dlib::sleep(1000/60);
       continue;
     }
 
@@ -105,21 +106,17 @@ void *dlib_thread2_function(void *data) {
       dlib_data->faceRect = faces[faceId];
       dlib_data->faceCenter = dlib_rect_center(faces[faceId]);
 
-      // signal when face is detected
-      #ifdef TRACKING_THREADING_LOG
-      printf("1 <- 2 faces found, early signal\n");
-      #endif
-      pthread_cond_signal(&dlib_data->dlib_thread2_cond1);
-
       // Start tracking face in parallel
       #ifndef TRACKING_STRAIT
       dlib_data->tracker.start_track(cimg, faces[faceId]);
       dlib_data->faceTracked = true;
       dlib_data->tracker_reference_psr = -1;
       #endif
+      
       #ifdef TRACKING_THREADING_LOG
-      printf("     2 tracked\n");
+      printf("1 <- 2 faces found\n");
       #endif
+      pthread_cond_signal(&dlib_data->dlib_thread2_cond1);
     } else {
       dlib_data->facesFound = false;
       #ifdef TRACKING_THREADING_LOG
@@ -128,6 +125,9 @@ void *dlib_thread2_function(void *data) {
       pthread_cond_signal(&dlib_data->dlib_thread2_cond1);
     }
     pthread_mutex_unlock(&dlib_thread2_mutex_cimg);
+    #ifdef TRACKING_THREADING_LOG
+    printf("  -- 2 mutex unlocked\n");
+    #endif
 
     // signal to make sure it's not stuck
     // printf("1 <- 2 send proper signal to continue working\n");
@@ -272,18 +272,12 @@ void *dlib_thread1_function(void *data) {
         //cv::Mat temp;
         //if (cap.grab()) {
         if (1) {
-          // Send sync signal to main process (before recodnition to sync with
-          // camera)
-          if (webcam_settings->Sync && webcam_settings->SyncType2)
+          // Send sync signal to main process (before recodnition to sync with camera)
+          if (webcam_settings->Sync)
             pthread_cond_signal(&dlib_data->dlib_thread_cond);
 
-          pthread_mutex_lock(&dlib_thread2_mutex_cimg);
-          #ifdef TRACKING_THREADING_LOG
-          printf("  -- 1 mutex locked\n");
-          #endif
           //cimg = dlib::cv_image<unsigned char>(mat);
           capture_frame(data);
-          pthread_mutex_unlock(&dlib_thread2_mutex_cimg);
           
           if (!capture_status()) {
             //capture_cleanup();
@@ -416,7 +410,6 @@ void *dlib_thread1_function(void *data) {
 
             //printf("%f\t%f\t%f\n", rotation_vector.x(), rotation_vector.y(), rotation_vector.z());
           }
-
           if (dlib_data->facesFound) {
             if (first) {
               adaptStrength = 1;
@@ -427,14 +420,20 @@ void *dlib_thread1_function(void *data) {
 
                 translation_vector1(i) = translation_vector(i);
                 translation_vector2(i) = translation_vector(i);
+                //translation_vector3(i) = translation_vector(i);
                 rotation_vector1(i) = rotation_vector(i);
                 rotation_vector2(i) = rotation_vector(i);
+                //rotation_vector3(i) = rotation_vector(i);
               }
             } else {
-              translation_vector2 = translation_vector1;
-              translation_vector1 = translation_vector;
-              rotation_vector2 = rotation_vector1;
-              rotation_vector1 = rotation_vector;
+              for (int i=0; i < 3; i++) {
+                //translation_vector3(i) = translation_vector2(i);
+                translation_vector2(i) = translation_vector1(i);
+                translation_vector1(i) = translation_vector(i);
+                //rotation_vector3(i) = rotation_vector2(i);
+                rotation_vector2(i) = rotation_vector1(i);
+                rotation_vector1(i) = rotation_vector(i);
+              }
 
               adaptStrength *= ADAPT_STRENGTH_SPEED;
               rotation_vector_offset +=
@@ -732,12 +731,14 @@ void *dlib_thread1_function(void *data) {
               #ifdef TRACKING_LOG
               printf("Face lost counter: %d\n", facesLostCounter);
               #endif
-              translation_vector3 = translation_vector2;
-              translation_vector2 = translation_vector1;
-              translation_vector1 = translation_vector;
-              rotation_vector3 = rotation_vector2;
-              rotation_vector2 = rotation_vector1;
-              rotation_vector1 = rotation_vector;
+              for (int i=0; i < 3; i++) {
+                translation_vector3(i) = translation_vector2(i);
+                translation_vector2(i) = translation_vector1(i);
+                translation_vector1(i) = translation_vector(i);
+                rotation_vector3(i) = rotation_vector2(i);
+                rotation_vector2(i) = rotation_vector1(i);
+                rotation_vector1(i) = rotation_vector(i);
+              }
 
               if (facesLostCounter == 1) {
                 translation_vector =
@@ -800,7 +801,7 @@ void *dlib_thread1_function(void *data) {
           }
           // Send sync signal to main process (after recognition to reduce
           // latency)
-          if (webcam_settings->Sync && !webcam_settings->SyncType2)
+          if (webcam_settings->SyncType2)
             pthread_cond_signal(&dlib_data->dlib_thread_cond);
         } else {
           break;

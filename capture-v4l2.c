@@ -211,6 +211,10 @@ static void stop_capturing(void) {
 static void process_image(void *data, const void *pBuffer) {
   uint8_t* buffer = (uint8_t*)pBuffer;
   
+  pthread_mutex_lock(&dlib_thread2_mutex_cimg);
+  #ifdef TRACKING_THREADING_LOG
+  printf("  -- 1 mutex locked\n");
+  #endif
   int w = cimg.nr();
   int h = cimg.nc();
   
@@ -231,6 +235,11 @@ static void process_image(void *data, const void *pBuffer) {
   for(int i=0; i<w*h; i++) {
     cimg[i / h][i % h] = lut[buffer[i*2]];
   }
+  
+  pthread_mutex_unlock(&dlib_thread2_mutex_cimg);
+  #ifdef TRACKING_THREADING_LOG
+  printf("  -- 1 mutex unlocked\n");
+  #endif
   
   //fputc('.', stdout);
   //fflush(stdout);
