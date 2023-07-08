@@ -11,6 +11,9 @@
 #define DLIB_THREAD_SIGNAL_CALIBRATE_MTH_Fun 5
 #define DLIB_THREAD_SIGNAL_CALIBRATE_MTH_U 6
 
+#define FACE_DATA_BUFFER_SIZE 4
+//#define TRACKING_BUFFER_LOG
+
 #define HEVA_CONFIG_PATH "heva.ini"
 
 #include <pthread.h>
@@ -34,7 +37,7 @@ struct face_recognition_data {
 	double translation1;
 	double translation2;
 	double translation3;
-	bool on_screen;
+	bool on_screen = true;
 };
 
 struct webcam_settings_t {
@@ -48,7 +51,8 @@ struct webcam_settings_t {
 	int PreferredId = -1;
 	char Format[4] = "";
 	bool Sync = false;
-	bool SyncType2 = true;
+	bool SyncType2 = false;
+	bool SyncBuffer = true;
 	bool MouthIndirect = false;
 	float Gamma = 1.0;
 	int Buffer = -1;
@@ -61,7 +65,9 @@ struct dlib_thread_data {
 	unsigned char dlib_thread_ready;
 	unsigned char dlib_thread_signal;
 	pthread_cond_t dlib_thread_cond;
-	face_recognition_data face_data;
+	face_recognition_data face_data_buffer[FACE_DATA_BUFFER_SIZE];
+	unsigned char face_data_pos = 0;
+	unsigned char face_data_length = 0;
 	webcam_settings_t* webcam_settings;
 	
 	pthread_cond_t dlib_thread2_cond1;
@@ -74,6 +80,7 @@ struct dlib_thread_data {
 	dlib::rectangle faceRect;
 	
 	bool thread1_waiting;
+	double webcamDeltaTime = 1000.0/30.0;
 };
 
 void* dlib_thread1_function(void* data);

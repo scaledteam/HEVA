@@ -86,9 +86,10 @@ Heva::Heva(Context* context) :
 
 
 std::string sceneName = "Default";
-bool webcamSync = true;
+bool webcamSync = false;
 int graphicsFps = 0;
 float model_focalLength = 50.0;
+float bufferSyncLastUpdate = 0;
 
 void Heva::Setup()
 {
@@ -134,11 +135,17 @@ void Heva::Setup()
 		strcpy(webcam_settings->Format, reader.Get("webcam", "format", "").c_str());
 		
 		webcam_settings->Sync = reader.GetBoolean("webcam", "sync", false);
-		webcam_settings->SyncType2 = reader.GetBoolean("webcam", "sync_type2", true);
+		webcam_settings->SyncType2 = reader.GetBoolean("webcam", "sync_type2", false);
+		webcam_settings->SyncBuffer = reader.GetBoolean("webcam", "sync_buffer", true);
 		
 		webcamSync = webcam_settings->Sync || webcam_settings->SyncType2;
-		if (webcamSync)
+		if (webcamSync) {
+		  webcam_settings->SyncBuffer = false;
 		  graphicsFps = 0;
+		}
+		if (webcam_settings->SyncBuffer) {
+		  graphicsFps = 0;
+		}
 		webcam_settings->MouthIndirect = reader.GetBoolean("webcam", "mouth_indirect", false);
 		webcam_settings->Gamma = reader.GetReal("webcam", "gamma", 1.0);
 		webcam_settings->Buffer = reader.GetInteger("webcam", "buffer", -1);
@@ -684,8 +691,21 @@ void Heva::HandleUpdate(StringHash eventType, VariantMap& eventData)
 		}
 	}
 	
-	face_recognition_data* face_data = &dlib_data->face_data;
-	
+	// buffer
+	face_recognition_data* face_data = dlib_data->face_data_buffer;
+	if (webcam_settings->SyncBuffer) {
+	  face_data = dlib_data->face_data_buffer + dlib_data->face_data_pos;
+            
+          #ifdef TRACKING_BUFFER_LOG
+          printf("read from '%d' buffer, length %d\n", dlib_data->face_data_pos, dlib_data->face_data_length);
+          #endif
+          
+	  float deltaTime = time_->GetElapsedTime() - bufferSyncLastUpdate;
+	  //printf("%lf\n", dlib_data->webcamDeltaTime);
+	  time_->Sleep(std::max(0.0, dlib_data->webcamDeltaTime - deltaTime));
+	  //time_->Sleep(1000.0/30.0 - deltaTime);
+	  bufferSyncLastUpdate = time_->GetElapsedTime();
+        }
 	
 	// Body and Head
 	rotationSmooth += POINTS_SMOOTHING1 * (Vector3(face_data->rotation1, face_data->rotation2, face_data->rotation3) - rotationSmooth);
@@ -789,6 +809,14 @@ void Heva::HandleUpdate(StringHash eventType, VariantMap& eventData)
 		pthread_cond_signal(&vmc_osc_sender_data->cond);
 	}
 	#endif
+	
+        if (dlib_data->face_data_length > 1) {
+          dlib_data->face_data_length--;
+          #ifdef TRACKING_BUFFER_LOG
+          printf("freeing   '%d' buffer, length %d\n", dlib_data->face_data_pos, dlib_data->face_data_length);
+          #endif
+          dlib_data->face_data_pos = (dlib_data->face_data_pos + 1) % FACE_DATA_BUFFER_SIZE;
+        }
 	
 	#ifdef X11_TRANSPARENT_WINDOW
 	#ifdef DEBUG_GEOMETRY

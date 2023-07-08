@@ -16,6 +16,7 @@
 #define ADAPT_STRENGTH_SPEED .9998
 
 #include "face_recognition.h"
+#include <time.h>
 
 #include <dlib/image_processing.h>
 #include <dlib/image_processing/frontal_face_detector.h>
@@ -33,11 +34,48 @@ pthread_mutex_t dlib_thread2_mutex_cimg = PTHREAD_MUTEX_INITIALIZER;
 dlib::array2d<unsigned char> cimg;
 #include "capture-v4l2.c"
 
-
 double clamp(double value) { return std::max(0.0, std::min(1.0, value)); }
 
 dlib::point dlib_rect_center(dlib::rectangle rect) {
   return (rect.tl_corner() + rect.br_corner()) * .5;
+}
+
+void writeToFaceData(
+  face_recognition_data* face_data,
+  dlib::vector<double,3> rotation_vector,
+  dlib::vector<double,3> rotation_vector_offset,
+  dlib::vector<double,3> translation_vector,
+  dlib::vector<double,3> translation_vector_offset
+) {
+  face_data->rotation1 = -(rotation_vector.x() -
+                           rotation_vector_offset.x()) *
+                         180 / 3.1415;
+  face_data->rotation2 = -(rotation_vector.z() -
+                           rotation_vector_offset.z()) *
+                         180 / 3.1415;
+  face_data->rotation3 = -(rotation_vector.y() -
+                           rotation_vector_offset.y()) *
+                         180 / 3.1415;
+
+  dlib::vector translation_vector_send = translation_vector - translation_vector_offset;
+
+  /*dlib::matrix<double> rotation_matrix1(3,3);
+  rotation_matrix1 =  1.0, 0.0, 0.0,
+                      0.0, 1.0, 0.0,
+                      0.0, 0.0, 1.0;
+  translation_vector_send = rotation_matrix1 * translation_vector_send;*/
+
+  dlib::point_transform_affine3d transform_class;
+  transform_class = dlib::rotate_around_x(-rotation_vector_offset.x());
+  translation_vector_send = transform_class(translation_vector_send);
+  transform_class = dlib::rotate_around_y(-rotation_vector_offset.y());
+  translation_vector_send = transform_class(translation_vector_send);
+  transform_class = dlib::rotate_around_z(-rotation_vector_offset.z());
+  translation_vector_send = transform_class(translation_vector_send);
+
+  face_data->translation1 = translation_vector_send.x();
+  face_data->translation2 = translation_vector_send.y();
+  face_data->translation3 = translation_vector_send.z();
 }
 
 void *dlib_thread2_function(void *data) {
@@ -134,16 +172,24 @@ void *dlib_thread2_function(void *data) {
     // pthread_cond_signal(&dlib_data->dlib_thread2_cond1);
   }
 
-  // printf("     2 thread stopped !!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+  #ifdef TRACKING_THREADING_LOG
+  printf("     2 thread stopped !!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+  #endif
 
   return NULL;
 }
 
+double getTimeNanoseconds() {
+  struct timespec ts;
+  clock_gettime( CLOCK_MONOTONIC_RAW, &ts );
+  return ts.tv_sec * 1000000000 + ts.tv_nsec;
+}
+
+
 void *dlib_thread1_function(void *data) {
   dlib_thread_data *dlib_data = (dlib_thread_data *)data;
-  face_recognition_data *face_data = &dlib_data->face_data;
   webcam_settings_t *webcam_settings = dlib_data->webcam_settings;
-
+  
   // Varriables
   dlib::shape_predictor pose_model;
   dlib::deserialize(webcam_settings->shapePredictorPath) >> pose_model;
@@ -164,6 +210,8 @@ void *dlib_thread1_function(void *data) {
   dlib::vector translation_vector1 = dlib::vector<double,3>();
   dlib::vector translation_vector2 = dlib::vector<double,3>();
   dlib::vector translation_vector3 = dlib::vector<double,3>();
+  
+  unsigned char face_data_last_tracked_pos = 0;
 
   double mth_a = 0;
   double mth_a_offset = 0;
@@ -179,8 +227,9 @@ void *dlib_thread1_function(void *data) {
   bool first = true;
   int firstCounter = 0;
 
+  uint64_t lastUpdate = getTimeNanoseconds();
+
   double adaptStrength = 1;
-  face_data->on_screen = true;
 
 
   /*double faceForms[] = {
@@ -287,6 +336,27 @@ void *dlib_thread1_function(void *data) {
             if (capture_status())
               start_capturing();
             continue;
+          }
+          
+          // face data buffer
+          face_recognition_data* face_data = dlib_data->face_data_buffer;
+          if (webcam_settings->SyncBuffer) {
+            // time metric
+            uint64_t deltaTime = getTimeNanoseconds() - lastUpdate;
+            dlib_data->webcamDeltaTime += 0.02 * (deltaTime * 0.000001 - dlib_data->webcamDeltaTime);
+            lastUpdate = getTimeNanoseconds();
+            //printf("dt: %f smooth: %f\n", deltaTime * 0.000001, dlib_data->webcamDeltaTime);
+            
+            if (dlib_data->face_data_length >= FACE_DATA_BUFFER_SIZE-1) {
+              continue;
+            }
+            dlib_data->face_data_length++;
+            int buffer_pos = (dlib_data->face_data_pos + dlib_data->face_data_length) % FACE_DATA_BUFFER_SIZE;
+            face_data = dlib_data->face_data_buffer + buffer_pos;
+            
+            #ifdef TRACKING_BUFFER_LOG
+            printf("write to  '%d' buffer, length %d\n", buffer_pos, dlib_data->face_data_length);
+            #endif
           }
 
           if (first || !dlib_data->faceTracked) {
@@ -411,6 +481,7 @@ void *dlib_thread1_function(void *data) {
             //printf("%f\t%f\t%f\n", rotation_vector.x(), rotation_vector.y(), rotation_vector.z());
           }
           if (dlib_data->facesFound) {
+            face_data_last_tracked_pos = dlib_data->face_data_pos;
             if (first) {
               adaptStrength = 1;
               // i don't know why there is no vector copy
@@ -445,43 +516,12 @@ void *dlib_thread1_function(void *data) {
             }
             facesLostCounter = 0;
             face_data->on_screen = true;
-
-            face_data->rotation1 = -(rotation_vector.x() -
-                                     rotation_vector_offset.x()) *
-                                   180 / 3.1415;
-            face_data->rotation2 = -(rotation_vector.z() -
-                                     rotation_vector_offset.z()) *
-                                   180 / 3.1415;
-            face_data->rotation3 = -(rotation_vector.y() -
-                                     rotation_vector_offset.y()) *
-                                   180 / 3.1415;
             
-            dlib::vector translation_vector_send = translation_vector - translation_vector_offset;
-            
-            /*dlib::matrix<double> rotation_matrix1(3,3);
-            rotation_matrix1 =  1.0, 0.0, 0.0,
-                                0.0, 1.0, 0.0,
-                                0.0, 0.0, 1.0;
-            translation_vector_send = rotation_matrix1 * translation_vector_send;*/
-            
-            dlib::point_transform_affine3d transform_class;
-            transform_class = dlib::rotate_around_x(-rotation_vector_offset.x());
-            translation_vector_send = transform_class(translation_vector_send);
-            transform_class = dlib::rotate_around_y(-rotation_vector_offset.y());
-            translation_vector_send = transform_class(translation_vector_send);
-            transform_class = dlib::rotate_around_z(-rotation_vector_offset.z());
-            translation_vector_send = transform_class(translation_vector_send);
-            
-            face_data->translation1 = translation_vector_send.x();
-            face_data->translation2 = translation_vector_send.y();
-            face_data->translation3 = translation_vector_send.z();
-            
-            /*face_data->translation1 = translation_vector.x() -
-                                      translation_vector_offset.x();
-            face_data->translation2 = translation_vector.y() -
-                                      translation_vector_offset.y();
-            face_data->translation3 = translation_vector.z() -
-                                      translation_vector_offset.z();*/
+            writeToFaceData(face_data,
+                            rotation_vector,
+                            rotation_vector_offset,
+                            translation_vector,
+                            translation_vector_offset);
 
             // Face
             //double distance_mul_2 = translation_vector.z() * (-240.0 / webcam_settings->Height);
@@ -726,6 +766,19 @@ void *dlib_thread1_function(void *data) {
           // if faces not found
           else {
             facesLostCounter++;
+            
+            /*double factor = 0.5;
+            face_data->MTH_E *= factor;
+            face_data->MTH_A *= factor;
+            face_data->MTH_Fun *= factor;
+            face_data->MTH_U *= factor;
+            face_data->BRW_Fun *= factor;
+            face_data->BRW_Angry *= factor;
+            face_data->EYE_Close *= factor;
+            face_data->EYE_Close_L *= factor;
+            face_data->EYE_Close_R *= factor;*/
+            
+            *face_data = dlib_data->face_data_buffer[face_data_last_tracked_pos];
 
             if (facesLostCounter <= 2) {
               #ifdef TRACKING_LOG
@@ -744,8 +797,7 @@ void *dlib_thread1_function(void *data) {
                 translation_vector =
                     translation_vector1 +
                     (translation_vector1 - translation_vector2) +
-                    ((translation_vector1 - translation_vector2) -
-                     (translation_vector2 - translation_vector3));
+                    ((translation_vector1 - translation_vector2) - (translation_vector2 - translation_vector3));
                 rotation_vector = rotation_vector1 +
                                   (rotation_vector1 - rotation_vector2) +
                                   ((rotation_vector1 - rotation_vector2) -
@@ -758,22 +810,11 @@ void *dlib_thread1_function(void *data) {
                     rotation_vector1 + (rotation_vector1 - rotation_vector2);
               }
 
-              face_data->rotation1 = -(rotation_vector.x() -
-                                       rotation_vector_offset.x()) *
-                                     180 / 3.1415;
-              face_data->rotation2 = -(rotation_vector.z() -
-                                       rotation_vector_offset.z()) *
-                                     180 / 3.1415;
-              face_data->rotation3 = -(rotation_vector.y() -
-                                       rotation_vector_offset.y()) *
-                                     180 / 3.1415;
-
-              face_data->translation1 = translation_vector.x() -
-                                        translation_vector_offset.x();
-              face_data->translation2 = translation_vector.y() -
-                                        translation_vector_offset.y();
-              face_data->translation3 = translation_vector.z() -
-                                        translation_vector_offset.z();
+              writeToFaceData(face_data,
+                              rotation_vector,
+                              rotation_vector_offset,
+                              translation_vector,
+                              translation_vector_offset);
             } else {
               face_data->MTH_E *= 0.9;
               face_data->MTH_A *= 0.9;
@@ -797,6 +838,14 @@ void *dlib_thread1_function(void *data) {
                 
                 face_data->on_screen = false;
               }
+              // otherwise update face data for better buffer support
+              else {
+                writeToFaceData(face_data,
+                                rotation_vector,
+                                rotation_vector_offset,
+                                translation_vector,
+                                translation_vector_offset);
+             }
             }
           }
           // Send sync signal to main process (after recognition to reduce
